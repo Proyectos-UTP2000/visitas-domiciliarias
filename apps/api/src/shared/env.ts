@@ -1,5 +1,8 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { z } from "zod";
+
+config({ path: "../../.env" });
+config();
 
 const envSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(4000),
