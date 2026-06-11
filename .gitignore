@@ -31,6 +31,7 @@ build/
 .vscode/
 
 ### Local environment ###
+# Environment files
 .env
 .env.*
 !.env.example
@@ -48,3 +49,15 @@ skills-lock.json
 
 # Git worktrees
 .worktrees/
+
+# Dependencies
+.pnpm-store/
+
+# Build outputs
+dist/
+
+# Prisma generated/client artifacts
+apps/api/generated/
+
+# Local planning artifacts
+/docs/superpowers/
