@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { AuthUserRecord } from "./auth.types.js";
+import type { AuthUserRecord, PasswordResetTokenRecord } from "./auth.types.js";
 
 export class PrismaAuthUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -27,5 +27,60 @@ export class PrismaAuthUserRepository {
       municipalidadId: user.municipalidadId,
       actorSocialId: user.actorSocial?.id ?? null,
     };
+  }
+
+  async findUserByEmail(
+    email: string,
+  ): Promise<{ id: string; username: string } | null> {
+    const actor = await this.prisma.actorSocial.findFirst({
+      where: { email, deletedAt: null, archivado: false },
+      select: { usuario: { select: { id: true, username: true } } },
+    });
+
+    if (!actor || !actor.usuario) {
+      return null;
+    }
+
+    return {
+      id: actor.usuario.id,
+      username: actor.usuario.username,
+    };
+  }
+
+  async createResetToken(
+    usuarioId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.prisma.passwordResetToken.create({
+      data: {
+        usuarioId,
+        tokenHash,
+        expiresAt,
+      },
+    });
+  }
+
+  async findResetTokenByHash(
+    tokenHash: string,
+  ): Promise<PasswordResetTokenRecord | null> {
+    const record = await this.prisma.passwordResetToken.findFirst({
+      where: { tokenHash },
+    });
+    return record as unknown as PasswordResetTokenRecord | null;
+  }
+
+  async markResetTokenAsUsed(tokenId: string): Promise<void> {
+    await this.prisma.passwordResetToken.update({
+      where: { id: tokenId },
+      data: { usedAt: new Date() },
+    });
+  }
+
+  async updatePassword(usuarioId: string, passwordHash: string): Promise<void> {
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { passwordHash },
+    });
   }
 }

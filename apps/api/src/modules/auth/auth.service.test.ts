@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { HttpError } from "../../shared/http-error.js";
 import { AuthService } from "./auth.service.js";
-import type { AuthUserRecord } from "./auth.types.js";
+import type { AuthUserRecord, AuthUserRepository } from "./auth.types.js";
 
 const activeAdmin: AuthUserRecord = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -85,5 +85,52 @@ describe("AuthService", () => {
       statusCode: 403,
       message: "Usuario inactivo",
     } satisfies Partial<HttpError>);
+  });
+
+  describe("password recovery flow", () => {
+    const mockUserRepository = {
+      findByUsername: vi.fn(),
+      findUserByEmail: vi.fn(),
+      createResetToken: vi.fn(),
+      findResetTokenByHash: vi.fn(),
+      markResetTokenAsUsed: vi.fn(),
+      updatePassword: vi.fn(),
+    };
+    const mockMailer = {
+      sendPasswordResetEmail: vi.fn(),
+    };
+    const recoveryService = new AuthService({
+      users: mockUserRepository as unknown as AuthUserRepository,
+      password: { verify: vi.fn() },
+      tokens: { signAccessToken: vi.fn() },
+      mailer: mockMailer,
+    });
+
+    it("throws 404 if email is not associated with any actor social", async () => {
+      mockUserRepository.findUserByEmail.mockResolvedValue(null);
+      await expect(
+        recoveryService.forgotPassword({ email: "notfound@gmail.com" }),
+      ).rejects.toThrow(new HttpError(404, "Correo electrónico no registrado"));
+    });
+
+    it("verifies reset token validation throws 400 for expired tokens", async () => {
+      const expiredTokenRecord = {
+        id: "tok-1",
+        usuarioId: "usr-1",
+        tokenHash: "hashed-token",
+        expiresAt: new Date(Date.now() - 10000), // expired
+        usedAt: null,
+        createdAt: new Date(),
+      };
+      mockUserRepository.findResetTokenByHash.mockResolvedValue(
+        expiredTokenRecord,
+      );
+      await expect(
+        recoveryService.resetPassword({
+          token: "raw-token",
+          password: "NewStrongPassword1!",
+        }),
+      ).rejects.toThrow(new HttpError(400, "Token inválido o expirado"));
+    });
   });
 });

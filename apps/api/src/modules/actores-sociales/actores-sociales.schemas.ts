@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordStrengthSchema } from "../auth/auth.schemas.js";
 
 export const actorSocialCreateSchema = z.object({
   municipalidadId: z.uuid(),
@@ -16,7 +17,7 @@ export const actorSocialCreateSchema = z.object({
   idiomaOrigen: z.string().trim().min(1, "Idioma de origen requerido").max(100),
   gradoInstruccion: z.string().trim().min(1, "Grado de instrucción requerido").max(100),
   username: z.string().trim().min(3, "Usuario debe tener al menos 3 caracteres").max(80),
-  password: z.string().min(6, "Contraseña debe tener al menos 6 caracteres"),
+  password: passwordStrengthSchema,
 });
 
 export const actorSocialUpdateSchema = z.object({
