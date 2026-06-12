@@ -8,6 +8,7 @@ import { createDefaultGruposTrabajoRouter } from "./modules/grupos-trabajo/grupo
 import { createDefaultMunicipalidadesRouter } from "./modules/municipalidades/municipalidades.module.js";
 import { createDefaultSectoresRouter } from "./modules/sectores/sectores.module.js";
 import { createDefaultTiposActorSocialRouter } from "./modules/tipos-actor-social/tipos-actor-social.module.js";
+import { createDefaultActoresSocialesRouter } from "./modules/actores-sociales/actores-sociales.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./shared/error-handler.js";
 
@@ -29,6 +30,7 @@ export function createApp() {
   );
   app.use("/api/v1/grupos-trabajo", createDefaultGruposTrabajoRouter());
   app.use("/api/v1/sectores", createDefaultSectoresRouter());
+  app.use("/api/v1/actores-sociales", createDefaultActoresSocialesRouter());
 
   app.use(errorHandler);
 
