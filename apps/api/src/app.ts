@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { createDefaultAuthRouter } from "./modules/auth/auth.module.js";
 import { createDefaultCargosMiembroGrupoRouter } from "./modules/cargos-miembro-grupo/cargos-miembro-grupo.module.js";
 import { createDefaultEntidadesRouter } from "./modules/entidades/entidades.module.js";
+import { createDefaultGruposTrabajoRouter } from "./modules/grupos-trabajo/grupos-trabajo.module.js";
 import { createDefaultMunicipalidadesRouter } from "./modules/municipalidades/municipalidades.module.js";
 import { createDefaultTiposActorSocialRouter } from "./modules/tipos-actor-social/tipos-actor-social.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
@@ -25,6 +26,7 @@ export function createApp() {
     "/api/v1/cargos-miembro-grupo",
     createDefaultCargosMiembroGrupoRouter(),
   );
+  app.use("/api/v1/grupos-trabajo", createDefaultGruposTrabajoRouter());
 
   app.use(errorHandler);
 
