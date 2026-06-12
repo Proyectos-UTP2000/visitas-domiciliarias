@@ -5,6 +5,7 @@ import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-
 import { createGrupo, listGrupos } from "../grupos-api";
 import type { GrupoTrabajoFormState, GrupoTrabajoRecord } from "../grupos-types";
 import { emptyGrupoForm, filterGrupos } from "../grupos-utils";
+import { getStoredSession } from "../../auth/auth-storage";
 
 export function GruposPage() {
   const navigate = useNavigate();
@@ -26,14 +27,9 @@ export function GruposPage() {
   const [muniFilter, setMuniFilter] = useState("");
 
   useEffect(() => {
-    try {
-      const session = localStorage.getItem("visitas_session");
-      if (session) {
-        const parsed = JSON.parse(session);
-        setUser(parsed.user);
-      }
-    } catch (e) {
-      console.error(e);
+    const session = getStoredSession();
+    if (session) {
+      setUser(session.user);
     }
     void loadData();
   }, []);
