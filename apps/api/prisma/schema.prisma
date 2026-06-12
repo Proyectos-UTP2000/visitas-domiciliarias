@@ -38,15 +38,15 @@ enum EstadoActorSocial {
 }
 
 model Usuario {
-  id              String    @id @default(uuid()) @db.Uuid
-  municipalidadId String?   @map("municipalidad_id") @db.Uuid
-  username        String    @unique @db.VarChar(80)
-  passwordHash    String    @map("password_hash") @db.Text
+  id              String     @id @default(uuid()) @db.Uuid
+  municipalidadId String?    @map("municipalidad_id") @db.Uuid
+  username        String     @unique @db.VarChar(80)
+  passwordHash    String     @map("password_hash") @db.Text
   rol             RolUsuario
-  activo          Boolean   @default(true)
-  ultimoLoginAt   DateTime? @map("ultimo_login_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  activo          Boolean    @default(true)
+  ultimoLoginAt   DateTime?  @map("ultimo_login_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   municipalidad       Municipalidad?       @relation(fields: [municipalidadId], references: [id])
   passwordResetTokens PasswordResetToken[]
@@ -98,6 +98,7 @@ model Entidad {
   codigo      String   @db.VarChar(100)
   nombre      String   @db.VarChar(150)
   activo      Boolean  @default(true)
+  archivado   Boolean  @default(false)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -141,7 +142,7 @@ model CargoMiembroGrupo {
 }
 
 model GrupoTrabajo {
-  id                    String             @id @default(uuid()) @db.Uuid
+  id                     String             @id @default(uuid()) @db.Uuid
   municipalidadId        String             @map("municipalidad_id") @db.Uuid
   fechaLimite            DateTime           @map("fecha_limite") @db.Date
   nombreGrupo            String             @map("nombre_grupo") @db.VarChar(150)
@@ -174,49 +175,54 @@ model GrupoEstablecimiento {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  grupoTrabajo GrupoTrabajo @relation(fields: [grupoTrabajoId], references: [id])
+  grupoTrabajo GrupoTrabajo   @relation(fields: [grupoTrabajoId], references: [id])
+  miembros     MiembroGrupo[]
 
+  @@unique([grupoTrabajoId, codigo])
   @@index([grupoTrabajoId])
   @@map("grupo_establecimiento")
 }
 
 model MiembroGrupo {
-  id                 String    @id @default(uuid()) @db.Uuid
-  grupoTrabajoId     String    @map("grupo_trabajo_id") @db.Uuid
-  cargoMiembroGrupoId String    @map("cargo_miembro_grupo_id") @db.Uuid
-  dni                String    @db.VarChar(8)
-  nombres            String    @db.VarChar(150)
-  apellidos          String    @db.VarChar(200)
-  celular            String?   @db.VarChar(9)
-  email              String?   @db.VarChar(150)
-  activo             Boolean   @default(true)
-  archivado          Boolean   @default(false)
-  deletedAt          DateTime? @map("deleted_at")
-  motivoEliminacion  String?   @map("motivo_eliminacion") @db.Text
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                     String    @id @default(uuid()) @db.Uuid
+  grupoTrabajoId         String    @map("grupo_trabajo_id") @db.Uuid
+  grupoEstablecimientoId String?   @map("grupo_establecimiento_id") @db.Uuid
+  cargoMiembroGrupoId    String    @map("cargo_miembro_grupo_id") @db.Uuid
+  dni                    String    @db.VarChar(8)
+  nombres                String    @db.VarChar(150)
+  apellidos              String    @db.VarChar(200)
+  celular                String?   @db.VarChar(9)
+  email                  String?   @db.VarChar(150)
+  activo                 Boolean   @default(true)
+  archivado              Boolean   @default(false)
+  deletedAt              DateTime? @map("deleted_at")
+  motivoEliminacion      String?   @map("motivo_eliminacion") @db.Text
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
-  grupoTrabajo      GrupoTrabajo      @relation(fields: [grupoTrabajoId], references: [id])
-  cargoMiembroGrupo CargoMiembroGrupo @relation(fields: [cargoMiembroGrupoId], references: [id])
+  grupoTrabajo         GrupoTrabajo          @relation(fields: [grupoTrabajoId], references: [id])
+  grupoEstablecimiento GrupoEstablecimiento? @relation(fields: [grupoEstablecimientoId], references: [id])
+  cargoMiembroGrupo    CargoMiembroGrupo     @relation(fields: [cargoMiembroGrupoId], references: [id])
 
   @@index([grupoTrabajoId])
+  @@index([grupoEstablecimientoId])
   @@map("miembro_grupo")
 }
 
 model Sector {
-  id             String     @id @default(uuid()) @db.Uuid
+  id              String     @id @default(uuid()) @db.Uuid
   municipalidadId String     @map("municipalidad_id") @db.Uuid
-  codigo         String     @db.VarChar(100)
-  departamento   String     @db.VarChar(100)
-  provincia      String     @db.VarChar(100)
-  distrito       String     @db.VarChar(100)
-  centroPoblado  String     @map("centro_poblado") @db.VarChar(100)
-  nombreSector   String     @map("nombre_sector") @db.VarChar(100)
-  tipoSector     TipoSector @map("tipo_sector")
-  activo         Boolean    @default(true)
-  archivado      Boolean    @default(false)
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
+  codigo          String     @db.VarChar(100)
+  departamento    String     @db.VarChar(100)
+  provincia       String     @db.VarChar(100)
+  distrito        String     @db.VarChar(100)
+  centroPoblado   String     @map("centro_poblado") @db.VarChar(100)
+  nombreSector    String     @map("nombre_sector") @db.VarChar(100)
+  tipoSector      TipoSector @map("tipo_sector")
+  activo          Boolean    @default(true)
+  archivado       Boolean    @default(false)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   municipalidad Municipalidad @relation(fields: [municipalidadId], references: [id])
   urbano        SectorUrbano?
@@ -258,6 +264,7 @@ model ActorSocial {
   nombres           String            @db.VarChar(150)
   apellidos         String            @db.VarChar(150)
   direccion         String            @db.VarChar(200)
+  centroPoblado     String?           @map("centro_poblado") @db.VarChar(100)
   fechaNac          DateTime          @map("fecha_nac") @db.Date
   email             String            @db.VarChar(150)
   celular           String            @db.VarChar(9)
@@ -275,7 +282,7 @@ model ActorSocial {
   municipalidad   Municipalidad   @relation(fields: [municipalidadId], references: [id])
   tipoActorSocial TipoActorSocial @relation(fields: [tipoActorSocialId], references: [id])
   grupoTrabajo    GrupoTrabajo    @relation(fields: [grupoTrabajoId], references: [id])
-  entidad          Entidad?        @relation(fields: [entidadId], references: [id])
+  entidad         Entidad?        @relation(fields: [entidadId], references: [id])
 
   @@unique([municipalidadId, dni])
   @@map("actor_social")
