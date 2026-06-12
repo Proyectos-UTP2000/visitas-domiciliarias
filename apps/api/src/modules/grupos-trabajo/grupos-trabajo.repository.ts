@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { HttpError } from "../../shared/http-error.js";
 import type {
   GrupoEstablecimientoCreateInput,
@@ -18,7 +18,7 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   list(): Promise<GrupoTrabajoRecord[]> {
     return this.prisma.grupoTrabajo.findMany({
       orderBy: [{ periodoYear: "desc" }, { nombreGrupo: "asc" }],
-    }) as Promise<GrupoTrabajoRecord[]>;
+    });
   }
 
   findGrupoById(id: string): Promise<{ id: string } | null> {
@@ -53,7 +53,7 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   ): Promise<GrupoTrabajoRecord> {
     return this.prisma.grupoTrabajo.create({
       data,
-    }) as Promise<GrupoTrabajoRecord>;
+    });
   }
 
   createEstablecimiento(
@@ -64,7 +64,7 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   ): Promise<GrupoEstablecimientoRecord> {
     return this.prisma.grupoEstablecimiento.create({
       data,
-    }) as Promise<GrupoEstablecimientoRecord>;
+    });
   }
 
   createMiembro(
@@ -77,7 +77,7 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   ): Promise<MiembroGrupoRecord> {
     return this.prisma.miembroGrupo.create({
       data,
-    }) as Promise<MiembroGrupoRecord>;
+    });
   }
 
   async updateMiembroContacto(
@@ -111,7 +111,7 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   private async updateExistingMiembro(
     grupoTrabajoId: string,
     miembroId: string,
-    data: Record<string, unknown>,
+    data: Prisma.MiembroGrupoUpdateInput,
   ): Promise<MiembroGrupoRecord> {
     const existing = await this.prisma.miembroGrupo.findFirst({
       where: { id: miembroId, grupoTrabajoId },
@@ -125,6 +125,6 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
     return this.prisma.miembroGrupo.update({
       where: { id: miembroId },
       data,
-    }) as Promise<MiembroGrupoRecord>;
+    });
   }
 }

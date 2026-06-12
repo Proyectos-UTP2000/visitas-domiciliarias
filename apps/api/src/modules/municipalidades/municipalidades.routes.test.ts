@@ -12,7 +12,7 @@ async function requestJson(
   method: string,
   path: string,
   body: unknown,
-  service: any,
+  service: Parameters<typeof createMunicipalidadesRouter>[0],
 ) {
   const app = express();
   app.use(express.json());
@@ -83,14 +83,12 @@ describe("municipalidades routes", () => {
       prioridad: 1,
     };
     const service = {
-      create: vi
-        .fn()
-        .mockResolvedValue({
-          id: "mun-1",
-          ...payload,
-          activo: true,
-          archivado: false,
-        }),
+      create: vi.fn().mockResolvedValue({
+        id: "mun-1",
+        ...payload,
+        activo: true,
+        archivado: false,
+      }),
     };
     const response = await requestJson(
       "POST",
