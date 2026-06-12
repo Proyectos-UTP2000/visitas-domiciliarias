@@ -12,7 +12,8 @@
     "test": "vitest run --passWithNoTests --exclude \"dist/**\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "tsx src/dataloaders/run.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
