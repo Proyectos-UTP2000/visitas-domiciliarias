@@ -2,6 +2,7 @@ import { config as loadEnv } from "dotenv";
 import { hashPassword } from "../shared/password.js";
 import { prisma } from "../shared/prisma.js";
 import { seedInitialAdmin } from "./initial-admin.loader.js";
+import { seedTiposActorSocial } from "./tipos-actor-social.loader.js";
 
 loadEnv({ path: "../../.env" });
 loadEnv();
@@ -27,6 +28,9 @@ async function main() {
       ? `DataLoader: usuario administrador inicial creado (${result.username})`
       : `DataLoader: usuario administrador inicial ya existía (${result.username})`
   );
+
+  const typesCreated = await seedTiposActorSocial(prisma.tipoActorSocial);
+  console.log(`DataLoader: ${typesCreated} tipos de actor social creados.`);
 }
 
 main()
