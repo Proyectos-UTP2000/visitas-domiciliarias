@@ -9,7 +9,12 @@ let server: Server | null = null;
 async function postJson(path: string, body: unknown, login = vi.fn()) {
   const app = express();
   app.use(express.json());
-  app.use("/api/v1/auth", createAuthRouter({ login }));
+  app.use(
+    "/api/v1/auth",
+    createAuthRouter({ login } as unknown as Parameters<
+      typeof createAuthRouter
+    >[0]),
+  );
   app.use(errorHandler);
 
   server = app.listen(0);
