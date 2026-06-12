@@ -6,6 +6,7 @@ import { createDefaultCargosMiembroGrupoRouter } from "./modules/cargos-miembro-
 import { createDefaultEntidadesRouter } from "./modules/entidades/entidades.module.js";
 import { createDefaultGruposTrabajoRouter } from "./modules/grupos-trabajo/grupos-trabajo.module.js";
 import { createDefaultMunicipalidadesRouter } from "./modules/municipalidades/municipalidades.module.js";
+import { createDefaultSectoresRouter } from "./modules/sectores/sectores.module.js";
 import { createDefaultTiposActorSocialRouter } from "./modules/tipos-actor-social/tipos-actor-social.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./shared/error-handler.js";
@@ -27,6 +28,7 @@ export function createApp() {
     createDefaultCargosMiembroGrupoRouter(),
   );
   app.use("/api/v1/grupos-trabajo", createDefaultGruposTrabajoRouter());
+  app.use("/api/v1/sectores", createDefaultSectoresRouter());
 
   app.use(errorHandler);
 
