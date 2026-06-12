@@ -68,5 +68,12 @@ export function createTiposActorSocialRouter(
       next(e);
     }
   });
+  router.patch("/:id/archivar", async (req, res, next) => {
+    try {
+      res.json(await service.archive(req.params.id));
+    } catch (e) {
+      next(e);
+    }
+  });
   return router;
 }

@@ -33,6 +33,10 @@ export class TiposActorSocialService {
     await this.ensureExists(id);
     return this.repository.setActivo(id, activo);
   }
+  async archive(id: string): Promise<TipoActorSocialRecord> {
+    await this.ensureExists(id);
+    return this.repository.archive(id);
+  }
   private async ensureExists(id: string) {
     if (!(await this.repository.findById(id)))
       throw new HttpError(404, "Tipo de actor social no encontrado");

@@ -27,4 +27,5 @@ export type TiposActorSocialRepository = {
     data: TipoActorSocialUpdateInput,
   ): Promise<TipoActorSocialRecord>;
   setActivo(id: string, activo: boolean): Promise<TipoActorSocialRecord>;
+  archive(id: string): Promise<TipoActorSocialRecord>;
 };

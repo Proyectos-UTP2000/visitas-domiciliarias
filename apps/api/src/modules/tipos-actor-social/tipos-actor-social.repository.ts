@@ -49,4 +49,12 @@ export class PrismaTiposActorSocialRepository implements TiposActorSocialReposit
       }),
     );
   }
+  async archive(id: string): Promise<TipoActorSocialRecord> {
+    return map(
+      await this.prisma.tipoActorSocial.update({
+        where: { id },
+        data: { archivado: true },
+      }),
+    );
+  }
 }
