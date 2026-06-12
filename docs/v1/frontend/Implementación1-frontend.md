@@ -165,8 +165,9 @@ Para las páginas internas posteriores al login se debe mantener el mismo esquem
 1. Menos elementos decorativos que en el login.
 2. Animaciones mínimas o inexistentes, limitadas a estados de hover/focus.
 3. Layouts administrativos claros: barra superior, tarjetas simples, tablas y formularios legibles.
-4. Priorizar velocidad de uso y claridad de datos sobre efectos visuales.
-5. Reutilizar variables CSS existentes antes de crear nuevos colores.
+4. En los CRUD administrativos, las acciones de crear y editar deben abrirse siempre en modal, no como formularios incrustados en la página.
+5. Priorizar velocidad de uso y claridad de datos sobre efectos visuales.
+6. Reutilizar variables CSS existentes antes de crear nuevos colores.
 
 ## 7. Navegación interna y agrupación de opciones
 
@@ -200,7 +201,7 @@ Después de cerrar infraestructura y auth, la V1 frontend puede avanzar por mód
 
 1. **Municipalidades** (`features/municipalidades`)
    - listado;
-   - crear/editar;
+   - crear/editar mediante modal;
    - activar/inactivar.
 
 2. **Entidades** (`features/entidades`)
