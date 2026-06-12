@@ -18,7 +18,11 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   list(): Promise<GrupoTrabajoRecord[]> {
     return this.prisma.grupoTrabajo.findMany({
       orderBy: [{ periodoYear: "desc" }, { nombreGrupo: "asc" }],
-    });
+      include: {
+        establecimientos: true,
+        miembros: true,
+      },
+    }) as unknown as Promise<GrupoTrabajoRecord[]>;
   }
 
   findGrupoById(id: string): Promise<{ id: string } | null> {
