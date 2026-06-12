@@ -1,11 +1,17 @@
 import type { ErrorRequestHandler } from "express";
 import { HttpError } from "./http-error.js";
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (
+  error,
+  _req,
+  res,
+  _next: unknown,
+) => {
+  void _next;
   if (error instanceof HttpError) {
     res.status(error.statusCode).json({
       message: error.message,
-      details: error.details ?? null
+      details: error.details ?? null,
     });
     return;
   }
