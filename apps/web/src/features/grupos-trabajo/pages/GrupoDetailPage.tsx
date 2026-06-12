@@ -8,6 +8,7 @@ import {
   listGrupos,
   setMiembroActivo,
   updateMiembroContacto,
+  updateGrupoEstado,
 } from "../grupos-api";
 import type {
   GrupoEstablecimientoFormState,
@@ -21,11 +22,13 @@ import {
   emptyMiembroForm,
   filterMiembros,
 } from "../grupos-utils";
+import { getStoredSession } from "../../auth/auth-storage";
 
 export function GrupoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  const [user, setUser] = useState<{ rol: string; municipalidadId: string | null } | null>(null);
   const [grupo, setGrupo] = useState<GrupoTrabajoRecord | null>(null);
   const [cargos, setCargos] = useState<CargoMiembroRecord[]>([]);
   const [establecimientos, setEstablecimientos] = useState<GrupoEstablecimientoRecord[]>([]);
@@ -42,6 +45,11 @@ export function GrupoDetailPage() {
   const [isMibModalOpen, setIsMibModalOpen] = useState(false);
   const [isMibEditOpen, setIsMibEditOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isObserveModalOpen, setIsObserveModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+
+  const [statusComment, setStatusComment] = useState("");
+  const [isSubmittingEstado, setIsSubmittingEstado] = useState(false);
 
   const [estForm, setEstForm] = useState<GrupoEstablecimientoFormState>(emptyEstablecimientoForm);
   const [mibForm, setMibForm] = useState<MiembroGrupoFormState>(emptyMiembroForm);
@@ -54,6 +62,10 @@ export function GrupoDetailPage() {
   const [estFilter, setEstFilter] = useState("");
 
   useEffect(() => {
+    const session = getStoredSession();
+    if (session) {
+      setUser(session.user);
+    }
     void loadDetails();
   }, [id]);
 
@@ -194,6 +206,25 @@ export function GrupoDetailPage() {
     }
   }
 
+  async function handleTransitionEstado(nextEstado: any, obsText?: string) {
+    if (!id) return;
+    setIsSubmittingEstado(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await updateGrupoEstado(id, nextEstado, obsText || null);
+      setGrupo(updated);
+      setMessage(`Estado del grupo actualizado a ${nextEstado} correctamente.`);
+      setIsObserveModalOpen(false);
+      setIsRejectModalOpen(false);
+      setStatusComment("");
+    } catch (err: any) {
+      setError(err.message || "Error al actualizar el estado del grupo.");
+    } finally {
+      setIsSubmittingEstado(false);
+    }
+  }
+
   return (
     <>
       <section className="admin-page-heading">
@@ -217,7 +248,7 @@ export function GrupoDetailPage() {
       {message ? <p className="alert alert-success">{message}</p> : null}
 
       {grupo ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 3fr", gap: "2rem", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: grupo.estado === "VALIDADO" ? "1fr 3fr" : "1fr", gap: "2rem", alignItems: "start" }}>
           {/* Info Panel */}
           <div className="admin-content-card" style={{ padding: "1.5rem" }}>
             <h3 style={{ margin: "0 0 1rem" }}>Datos Generales</h3>
@@ -229,10 +260,102 @@ export function GrupoDetailPage() {
               <strong>Estado:</strong><br />
               <span className="status-pill is-active">{grupo.estado}</span>
             </p>
+
+            {grupo.observaciones && (grupo.estado === "OBSERVADO" || grupo.estado === "RECHAZADO") && (
+              <div
+                style={{
+                  marginTop: "1rem",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  background: grupo.estado === "RECHAZADO" ? "rgba(211, 47, 47, 0.1)" : "rgba(245, 124, 0, 0.1)",
+                  border: `1px solid ${grupo.estado === "RECHAZADO" ? "var(--color-danger, #d32f2f)" : "var(--color-warning, #f57c00)"}`,
+                  color: grupo.estado === "RECHAZADO" ? "var(--color-danger, #d32f2f)" : "var(--color-warning, #f57c00)",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: "0.25rem" }}>
+                  {grupo.estado === "RECHAZADO" ? "Motivo del Rechazo:" : "Observaciones del Administrador:"}
+                </strong>
+                <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{grupo.observaciones}</p>
+              </div>
+            )}
+
+            {/* Acciones de Estado */}
+            <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--color-border, #ccc)", paddingTop: "1rem" }}>
+              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                <button
+                  className="admin-button is-primary"
+                  style={{ width: "100%" }}
+                  onClick={() => {
+                    const confirm = window.confirm(
+                      "¿Seguro que deseas registrar este grupo de trabajo? Se bloqueará la edición y pasará a revisión.",
+                    );
+                    if (confirm) {
+                      void handleTransitionEstado("REGISTRADO");
+                    }
+                  }}
+                  disabled={isSubmittingEstado}
+                  type="button"
+                >
+                  Registrar Grupo
+                </button>
+              )}
+
+              {user?.rol === "ADMIN_GENERAL" && grupo.estado === "REGISTRADO" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <button
+                    className="admin-button is-primary"
+                    style={{ width: "100%" }}
+                    onClick={() => {
+                      const confirm = window.confirm("¿Aprobar y validar este grupo de trabajo?");
+                      if (confirm) {
+                        void handleTransitionEstado("VALIDADO");
+                      }
+                    }}
+                    disabled={isSubmittingEstado}
+                    type="button"
+                  >
+                    Aprobar / Validar
+                  </button>
+                  <button
+                    className="admin-button is-ghost"
+                    style={{
+                      width: "100%",
+                      border: "1px solid var(--color-warning, #f57c00)",
+                      color: "var(--color-warning, #f57c00)",
+                    }}
+                    onClick={() => {
+                      setStatusComment("");
+                      setIsObserveModalOpen(true);
+                    }}
+                    disabled={isSubmittingEstado}
+                    type="button"
+                  >
+                    Observar
+                  </button>
+                  <button
+                    className="admin-button is-ghost"
+                    style={{
+                      width: "100%",
+                      border: "1px solid var(--color-danger, #d32f2f)",
+                      color: "var(--color-danger, #d32f2f)",
+                    }}
+                    onClick={() => {
+                      setStatusComment("");
+                      setIsRejectModalOpen(true);
+                    }}
+                    disabled={isSubmittingEstado}
+                    type="button"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Main Tabs Panel */}
-          <div className="admin-content-card">
+          {grupo.estado === "VALIDADO" ? (
+            <div className="admin-content-card">
             <div style={{ display: "flex", borderBottom: "1px solid var(--color-border, #ccc)", marginBottom: "1.5rem" }}>
               <button
                 onClick={() => setActiveTab("estab")}
@@ -411,6 +534,7 @@ export function GrupoDetailPage() {
               </div>
             )}
           </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -686,6 +810,111 @@ export function GrupoDetailPage() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {/* Modal Observar */}
+      {isObserveModalOpen ? (
+        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
+          <form
+            className="admin-modal"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!statusComment.trim()) return;
+              void handleTransitionEstado("OBSERVADO", statusComment);
+            }}
+          >
+            <div className="admin-modal-header">
+              <h2>Enviar con Observaciones</h2>
+              <button
+                className="admin-modal-close"
+                onClick={() => setIsObserveModalOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="admin-form-grid">
+              <label className="field admin-form-wide">
+                Observaciones / Comentarios (Obligatorio)
+                <textarea
+                  maxLength={1000}
+                  onChange={(e) => setStatusComment(e.target.value)}
+                  required
+                  rows={4}
+                  value={statusComment}
+                  placeholder="Describe las correcciones necesarias..."
+                />
+              </label>
+            </div>
+            <div className="admin-form-actions">
+              <button
+                className="admin-button is-ghost"
+                onClick={() => setIsObserveModalOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button className="admin-button is-primary" disabled={isSubmittingEstado} type="submit">
+                {isSubmittingEstado ? "Enviando..." : "Confirmar Observación"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {/* Modal Rechazar */}
+      {isRejectModalOpen ? (
+        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
+          <form
+            className="admin-modal"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!statusComment.trim()) return;
+              void handleTransitionEstado("RECHAZADO", statusComment);
+            }}
+          >
+            <div className="admin-modal-header">
+              <h2>Rechazar Grupo de Trabajo</h2>
+              <button
+                className="admin-modal-close"
+                onClick={() => setIsRejectModalOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="admin-form-grid">
+              <label className="field admin-form-wide">
+                Motivo del Rechazo (Obligatorio)
+                <textarea
+                  maxLength={1000}
+                  onChange={(e) => setStatusComment(e.target.value)}
+                  required
+                  rows={4}
+                  value={statusComment}
+                  placeholder="Especifica por qué se rechaza de forma definitiva..."
+                />
+              </label>
+            </div>
+            <div className="admin-form-actions">
+              <button
+                className="admin-button is-ghost"
+                onClick={() => setIsRejectModalOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="admin-button"
+                style={{ background: "var(--color-danger, #d32f2f)", color: "#fff" }}
+                disabled={isSubmittingEstado}
+                type="submit"
+              >
+                {isSubmittingEstado ? "Enviando..." : "Confirmar Rechazo Definitivo"}
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
     </>

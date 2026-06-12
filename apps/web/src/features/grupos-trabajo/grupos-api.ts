@@ -1,5 +1,6 @@
 import { apiRequest } from "../../shared/api";
 import type {
+  EstadoGrupoTrabajo,
   GrupoEstablecimientoRecord,
   GrupoTrabajoRecord,
   MiembroGrupoRecord,
@@ -12,7 +13,7 @@ export function listGrupos(): Promise<GrupoTrabajoRecord[]> {
 }
 
 export function createGrupo(
-  payload: Omit<GrupoTrabajoRecord, "id" | "estado" | "activo" | "archivado">,
+  payload: Omit<GrupoTrabajoRecord, "id" | "estado" | "activo" | "archivado" | "observaciones">,
 ): Promise<GrupoTrabajoRecord> {
   return apiRequest<GrupoTrabajoRecord>(BASE_ENDPOINT, {
     method: "POST",
@@ -84,4 +85,15 @@ export function setMiembroActivo(
       body: { activo },
     },
   );
+}
+
+export function updateGrupoEstado(
+  id: string,
+  estado: EstadoGrupoTrabajo,
+  observaciones?: string | null,
+): Promise<GrupoTrabajoRecord> {
+  return apiRequest<GrupoTrabajoRecord>(`${BASE_ENDPOINT}/${id}/estado`, {
+    method: "PATCH",
+    body: { estado, observaciones },
+  });
 }

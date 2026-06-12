@@ -1,4 +1,4 @@
-export type EstadoGrupoTrabajo = "BORRADOR" | "REGISTRADO" | "OBSERVADO" | "VALIDADO";
+export type EstadoGrupoTrabajo = "BORRADOR" | "REGISTRADO" | "OBSERVADO" | "VALIDADO" | "RECHAZADO";
 
 export type GrupoTrabajoRecord = {
   id: string;
@@ -10,6 +10,7 @@ export type GrupoTrabajoRecord = {
   nombreRepresentante: string;
   apellidosRepresentante: string;
   estado: EstadoGrupoTrabajo;
+  observaciones: string | null;
   activo: boolean;
   archivado: boolean;
 };
