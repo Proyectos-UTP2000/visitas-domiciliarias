@@ -25,12 +25,26 @@ export function buildEntidadPayload(form: EntidadFormState): EntidadFormState {
 export function filterEntidades(
   records: EntidadRecord[],
   query: string,
+  statusFilter?: "active" | "inactive" | "",
+  tipoEntidadFilter?: string,
 ): EntidadRecord[] {
+  let result = records;
+
+  if (statusFilter === "active") {
+    result = result.filter((r) => r.activo);
+  } else if (statusFilter === "inactive") {
+    result = result.filter((r) => !r.activo);
+  }
+
+  if (tipoEntidadFilter) {
+    result = result.filter((r) => r.tipoEntidad === tipoEntidadFilter);
+  }
+
   const cleanQuery = query.trim().toLowerCase();
   if (!cleanQuery) {
-    return records;
+    return result;
   }
-  return records.filter(
+  return result.filter(
     (r) =>
       r.tipoEntidad.toLowerCase().includes(cleanQuery) ||
       r.codigo.toLowerCase().includes(cleanQuery) ||

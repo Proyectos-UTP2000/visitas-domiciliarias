@@ -30,9 +30,13 @@ export function EntidadesPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "">("");
+  const [tipoEntidadFilter, setTipoEntidadFilter] = useState("");
+
   const filteredEntidades = useMemo(
-    () => filterEntidades(entidades, query),
-    [entidades, query],
+    () => filterEntidades(entidades, query, statusFilter, tipoEntidadFilter),
+    [entidades, query, statusFilter, tipoEntidadFilter],
   );
 
   useEffect(() => {
@@ -183,7 +187,11 @@ export function EntidadesPage() {
           </label>
 
           <div className="admin-actions-group">
-            <button className="admin-button is-ghost" type="button">
+            <button
+              className={`admin-button is-ghost${showFilters ? " is-active" : ""}`}
+              onClick={() => setShowFilters(!showFilters)}
+              type="button"
+            >
               Filtros
             </button>
             <button className="admin-button is-ghost" type="button">
@@ -198,6 +206,48 @@ export function EntidadesPage() {
             </button>
           </div>
         </div>
+
+        {showFilters ? (
+          <div
+            className="admin-filters-panel"
+            style={{
+              display: "flex",
+              gap: "1rem",
+              marginBottom: "1rem",
+              padding: "1rem",
+              background: "var(--color-bg-alt, rgba(0,0,0,0.02))",
+              borderRadius: "8px",
+              border: "1px solid var(--color-border, rgba(0,0,0,0.08))",
+            }}
+          >
+            <label className="field" style={{ margin: 0, flex: 1 }}>
+              Estado
+              <select
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                style={{ width: "100%", marginTop: "0.25rem" }}
+                value={statusFilter}
+              >
+                <option value="">Todos</option>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+              </select>
+            </label>
+            <label className="field" style={{ margin: 0, flex: 1 }}>
+              Tipo de Entidad
+              <select
+                onChange={(e) => setTipoEntidadFilter(e.target.value)}
+                style={{ width: "100%", marginTop: "0.25rem" }}
+                value={tipoEntidadFilter}
+              >
+                <option value="">Todos</option>
+                <option value="Otras entidades públicas">Otras entidades públicas</option>
+                <option value="Entidad Privada">Entidad Privada</option>
+                <option value="Municipalidades">Municipalidades</option>
+                <option value="Establecimiento Salud">Establecimiento Salud</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
 
         {message ? <p className="alert alert-success">{message}</p> : null}
         {error ? <p className="alert alert-error">{error}</p> : null}

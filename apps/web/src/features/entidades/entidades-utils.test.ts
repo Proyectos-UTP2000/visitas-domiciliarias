@@ -62,4 +62,10 @@ describe("entidades-utils", () => {
     expect(filterEntidades(dummyRecords, "M01")).toHaveLength(1);
     expect(filterEntidades(dummyRecords, "")).toHaveLength(2);
   });
+
+  it("filters records by status and type", () => {
+    expect(filterEntidades(dummyRecords, "", "active")).toHaveLength(1);
+    expect(filterEntidades(dummyRecords, "", "inactive")).toHaveLength(1);
+    expect(filterEntidades(dummyRecords, "", "", "MIDIS")).toHaveLength(1);
+  });
 });
