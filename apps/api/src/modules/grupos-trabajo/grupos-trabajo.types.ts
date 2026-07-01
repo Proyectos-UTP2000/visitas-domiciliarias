@@ -22,9 +22,10 @@ export type GrupoTrabajoRecord = {
 
 export type GrupoTrabajoCreateInput = Omit<
   GrupoTrabajoRecord,
-  "id" | "fechaLimite" | "estado" | "activo" | "archivado"
+  "id" | "fechaLimite" | "estado" | "activo" | "archivado" | "observaciones"
 > & {
   fechaLimite: string | Date;
+  observaciones?: string | null;
 };
 
 export type GrupoEstablecimientoRecord = {

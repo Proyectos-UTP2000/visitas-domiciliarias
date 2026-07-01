@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { HttpError } from "../../shared/http-error.js";
 import type {
+  EstadoGrupoTrabajo,
   GrupoEstablecimientoCreateInput,
   GrupoEstablecimientoRecord,
   GrupoTrabajoCreateInput,
