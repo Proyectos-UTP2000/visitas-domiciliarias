@@ -3,6 +3,9 @@ import { hashPassword } from "../shared/password.js";
 import { prisma } from "../shared/prisma.js";
 import { seedInitialAdmin } from "./initial-admin.loader.js";
 import { seedTiposActorSocial } from "./tipos-actor-social.loader.js";
+import { seedMunicipalidades } from "./municipalidades.loader.js";
+import { seedEntidades } from "./entidades.loader.js";
+import { seedCargosMiembroGrupo } from "./cargos-miembro-grupo.loader.js";
 
 loadEnv({ path: "../../.env" });
 loadEnv();
@@ -31,6 +34,15 @@ async function main() {
 
   const typesCreated = await seedTiposActorSocial(prisma.tipoActorSocial);
   console.log(`DataLoader: ${typesCreated} tipos de actor social creados.`);
+
+  const municipalidadesCreated = await seedMunicipalidades(prisma.municipalidad);
+  console.log(`DataLoader: ${municipalidadesCreated} municipalidades creadas.`);
+
+  const entidadesCreated = await seedEntidades(prisma.entidad);
+  console.log(`DataLoader: ${entidadesCreated} entidades creadas.`);
+
+  const cargosCreated = await seedCargosMiembroGrupo(prisma.cargoMiembroGrupo);
+  console.log(`DataLoader: ${cargosCreated} cargos de miembro de grupo creados.`);
 }
 
 main()
