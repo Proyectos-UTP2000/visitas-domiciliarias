@@ -13,6 +13,8 @@ export const grupoTrabajoPayloadSchema = z.object({
   apellidosRepresentante: z.string().trim().min(1).max(200),
 });
 
+export const grupoTrabajoUpdateSchema = grupoTrabajoPayloadSchema.partial();
+
 export const grupoEstablecimientoPayloadSchema = z.object({
   nombre: z.string().trim().min(1).max(150),
   codigo: z.string().trim().min(1).max(50).nullable().optional(),
