@@ -1,6 +1,6 @@
 # Plan de Implementación: Consolidación de la Fase V1
 
-Este documento detalla el plan paso a paso para consolidar la Fase V1 del sistema de **Visitas Domiciliarias**, incorporando las validaciones de DNI único, edición de conformación de grupo de trabajo en estado borrador, carga de archivos adjuntos (PDFs), aislamiento multi-municipal para `ADMIN_MUNICIPAL` e integración de la API externa de DNI.
+Este documento detalla el plan paso a paso para consolidar la Fase V1 del sistema de **Visitas Domiciliarias**, incorporando las validaciones de DNI único, edición de conformación de grupo de trabajo en estado borrador u observado, carga de archivos adjuntos (PDFs), aislamiento multi-municipal para `ADMIN_MUNICIPAL` e integración de la API externa de DNI.
 
 ---
 
@@ -20,10 +20,19 @@ Evitar que el DNI del representante se registre en múltiples grupos de trabajo 
 
 ---
 
-## Tarea 2: Edición de Información General de Grupo de Trabajo (Estado Borrador)
+## Tarea 2: Edición de Información General de Grupo de Trabajo (Borrador u Observado) y Flujo de Estados
 
 ### Objetivo
-Permitir la modificación de los datos del grupo (fecha límite, representante, período, etc.) únicamente mientras su estado sea `BORRADOR`.
+Permitir la modificación de los datos generales del grupo, sus miembros y establecimientos únicamente cuando el grupo se encuentre en los estados de preparación: `BORRADOR` u `OBSERVADO`.
+
+### Flujo de Transiciones y Roles
+1. **Creación**: El supervisor crea el grupo, el cual inicia por defecto en estado `BORRADOR`.
+2. **Registro/Envío**: Cuando el supervisor termina de configurar el grupo (incluyendo miembros, establecimientos y archivos), presiona "Registrar". El estado cambia a `REGISTRADO`. A partir de este momento, los datos se bloquean (solo lectura).
+3. **Revisión (Administrador Municipal)**:
+   - El Administrador Municipal visualiza el grupo en estado `REGISTRADO`.
+   - **Aprobar**: Cambia el estado a `VALIDADO`. El grupo queda aprobado y bloqueado en su versión final.
+   - **Observar**: Requiere ingresar observaciones obligatorias en el campo `observaciones`. El estado cambia a `OBSERVADO`. El grupo vuelve a estar habilitado para edición en el panel del supervisor para subsanar los comentarios.
+   - **Rechazar**: Cambia el estado a `RECHAZADO` (solo lectura).
 
 ### Cambios en Backend
 1. **Ruta (`grupos-trabajo.routes.ts`)**:
@@ -33,8 +42,8 @@ Permitir la modificación de los datos del grupo (fecha límite, representante, 
    - Implementar el método `updateGrupo(id, input)`.
    - Obtener el grupo actual de la base de datos y verificar su estado:
      ```typescript
-     if (grupo.estado !== "BORRADOR") {
-       throw new HttpError(400, "Solo se pueden editar grupos de trabajo en estado borrador");
+     if (grupo.estado !== "BORRADOR" && grupo.estado !== "OBSERVADO") {
+       throw new HttpError(400, "Solo se pueden editar grupos de trabajo en estado borrador u observado");
      }
      ```
    - Aplicar la validación de DNI único del representante.
@@ -43,7 +52,7 @@ Permitir la modificación de los datos del grupo (fecha límite, representante, 
 ### Cambios en Frontend
 1. **Pantalla de Detalle (`GrupoDetailPage.tsx`)**:
    - Renderizar botones de "Editar" en los bloques de información general.
-   - Habilitar los campos y el formulario de edición solo si `grupo.estado === "BORRADOR"`.
+   - Habilitar los campos, la edición de establecimientos/miembros y el formulario de edición solo si `grupo.estado === "BORRADOR"` o `grupo.estado === "OBSERVADO"`.
    - Implementar la llamada a la API `PUT /grupos-trabajo/:id` para guardar cambios.
 
 ---
@@ -51,7 +60,7 @@ Permitir la modificación de los datos del grupo (fecha límite, representante, 
 ## Tarea 3: Subida de Archivos Adjuntos (PDF, etc.) en Grupo de Trabajo
 
 ### Objetivo
-Permitir a los usuarios cargar y descargar actas o documentos en formato PDF y otros tipos de archivo, asociados a un grupo de trabajo, únicamente en estado `BORRADOR`.
+Permitir a los usuarios cargar y descargar actas o documentos en formato PDF y otros tipos de archivo, asociados a un grupo de trabajo, únicamente en estado `BORRADOR` o `OBSERVADO`.
 
 ### Cambios en Base de Datos
 1. **Prisma Schema (`schema.prisma`)**:
@@ -79,18 +88,18 @@ Permitir a los usuarios cargar y descargar actas o documentos en formato PDF y o
    - Instalar `multer` y `@types/multer` para el procesamiento multipart/form-data.
 2. **Endpoints**:
    - `POST /api/v1/grupos-trabajo/:id/archivos`:
-     - Validar que el grupo esté en estado `BORRADOR`.
+     - Validar que el grupo esté en estado `BORRADOR` o `OBSERVADO`.
      - Utilizar `multer` para guardar el archivo en un directorio local configurable (e.g. `apps/api/uploads/`, ignorado en git).
      - Guardar la metadata en la tabla `grupo_trabajo_archivo`.
    - `GET /api/v1/grupos-trabajo/:id/archivos`: Listar todos los archivos asociados.
    - `GET /api/v1/grupos-trabajo/archivos/:archivoId`: Endpoint de descarga del archivo físico.
-   - `DELETE /api/v1/grupos-trabajo/:id/archivos/:archivoId`: Eliminar archivo adjunto (solo en estado `BORRADOR`).
+   - `DELETE /api/v1/grupos-trabajo/:id/archivos/:archivoId`: Eliminar archivo adjunto (solo en estado `BORRADOR` o `OBSERVADO`).
 
 ### Cambios en Frontend
 1. **Pantalla de Detalle (`GrupoDetailPage.tsx`)**:
    - Añadir una sección de "Documentos Adjuntos".
    - Integrar un control de subida de archivos (input file o drag and drop) que acepte formatos comunes (principalmente PDF).
-   - Ocultar/deshabilitar los controles de subida y eliminación de archivos si el estado del grupo no es `BORRADOR`.
+   - Ocultar/deshabilitar los controles de subida y eliminación de archivos si el estado del grupo no es `BORRADOR` o `OBSERVADO`.
    - Listar los archivos subidos con enlace de descarga.
 
 ---
