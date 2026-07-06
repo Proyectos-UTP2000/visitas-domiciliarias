@@ -71,3 +71,19 @@ export type MiembroGrupoFormState = {
   celular: string;
   email: string;
 };
+
+export type GrupoTrabajoArchivoRecord = {
+  id: string;
+  grupoTrabajoId: string;
+  nombreArchivo: string;
+  rutaArchivo: string;
+  mimeType: string;
+  createdAt: string;
+};
+
+export type GrupoTrabajoRecordWithRelations = GrupoTrabajoRecord & {
+  establecimientos: GrupoEstablecimientoRecord[];
+  miembros: MiembroGrupoRecord[];
+  archivos: GrupoTrabajoArchivoRecord[];
+};
+
