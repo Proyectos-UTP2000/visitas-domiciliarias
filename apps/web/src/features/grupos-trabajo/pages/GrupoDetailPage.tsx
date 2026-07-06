@@ -195,21 +195,16 @@ export function GrupoDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [allGroups, cargoList] = await Promise.all([
-        listGrupos(),
+      const [currentGrupo, cargoList] = await Promise.all([
+        getGrupoById(id),
         listCargos(),
       ]);
-
-      const currentGrupo = allGroups.find((g) => g.id === id) as any;
-      if (!currentGrupo) {
-        setError("Grupo de trabajo no encontrado.");
-        return;
-      }
 
       setGrupo(currentGrupo);
       setCargos(cargoList.filter((c) => c.activo));
       setMiembros(currentGrupo.miembros || []);
       setEstablecimientos(currentGrupo.establecimientos || []);
+      setArchivos(currentGrupo.archivos || []);
 
       const map: Record<string, string> = {};
       cargoList.forEach((c) => {
