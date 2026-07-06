@@ -9,6 +9,7 @@ import { createDefaultMunicipalidadesRouter } from "./modules/municipalidades/mu
 import { createDefaultSectoresRouter } from "./modules/sectores/sectores.module.js";
 import { createDefaultTiposActorSocialRouter } from "./modules/tipos-actor-social/tipos-actor-social.module.js";
 import { createDefaultActoresSocialesRouter } from "./modules/actores-sociales/actores-sociales.module.js";
+import { createDefaultDniRouter } from "./modules/dni/dni.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./shared/error-handler.js";
 
@@ -31,6 +32,7 @@ export function createApp() {
   app.use("/api/v1/grupos-trabajo", createDefaultGruposTrabajoRouter());
   app.use("/api/v1/sectores", createDefaultSectoresRouter());
   app.use("/api/v1/actores-sociales", createDefaultActoresSocialesRouter());
+  app.use("/api/v1/dni", createDefaultDniRouter());
 
   app.use(errorHandler);
 
