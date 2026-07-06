@@ -4,11 +4,13 @@ import {
   grupoEstablecimientoPayloadSchema,
   grupoTrabajoEstadoSchema,
   grupoTrabajoPayloadSchema,
+  grupoTrabajoUpdateSchema,
   miembroGrupoContactoSchema,
   miembroGrupoDeleteSchema,
   miembroGrupoPayloadSchema,
 } from "./grupos-trabajo.schemas.js";
 import type { GruposTrabajoService } from "./grupos-trabajo.service.js";
+import type { AuthenticatedRequest } from "../../shared/authenticated-request.js";
 
 function validationError(
   res: Parameters<RequestHandler>[1],
@@ -29,9 +31,31 @@ export function createGruposTrabajoRouter(
   const router = Router();
   router.use(auth);
 
-  router.get("/", async (_req, res, next) => {
+  router.get("/", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
     try {
-      res.json(await service.list());
+      if (rol === "ADMIN_MUNICIPAL") {
+        res.json(await service.list(municipalidadId));
+      } else {
+        const queryMun = req.query.municipalidadId as string | undefined;
+        res.json(await service.list(queryMun || null));
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:id", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const grupo = await service.getGrupoById(req.params.id);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+        return;
+      }
+      res.json(grupo);
     } catch (error) {
       next(error);
     }
@@ -43,8 +67,34 @@ export function createGruposTrabajoRouter(
       validationError(res, "Datos de grupo de trabajo inválidos", parsed.error);
       return;
     }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    if (rol === "ADMIN_MUNICIPAL" && parsed.data.municipalidadId !== municipalidadId) {
+      res.status(403).json({ message: "No tiene permiso para crear un grupo de trabajo en otra municipalidad" });
+      return;
+    }
     try {
       res.status(201).json(await service.createGrupo(parsed.data));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put("/:id", async (req, res, next) => {
+    const parsed = grupoTrabajoUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      validationError(res, "Datos de grupo de trabajo inválidos", parsed.error);
+      return;
+    }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const grupo = await service.getGrupoById(req.params.id);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para modificar este grupo de trabajo" });
+        return;
+      }
+      res.json(await service.updateGrupo(req.params.id, parsed.data));
     } catch (error) {
       next(error);
     }
@@ -56,7 +106,14 @@ export function createGruposTrabajoRouter(
       validationError(res, "Datos de establecimiento inválidos", parsed.error);
       return;
     }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
     try {
+      const grupo = await service.getGrupoById(req.params.grupoId);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+        return;
+      }
       res
         .status(201)
         .json(
@@ -73,7 +130,14 @@ export function createGruposTrabajoRouter(
       validationError(res, "Datos de miembro de grupo inválidos", parsed.error);
       return;
     }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
     try {
+      const grupo = await service.getGrupoById(req.params.grupoId);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+        return;
+      }
       res
         .status(201)
         .json(await service.createMiembro(req.params.grupoId, parsed.data));
@@ -94,7 +158,14 @@ export function createGruposTrabajoRouter(
         );
         return;
       }
+      const authReq = req as AuthenticatedRequest;
+      const { rol, municipalidadId } = authReq.auth!;
       try {
+        const grupo = await service.getGrupoById(req.params.grupoId);
+        if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+          res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+          return;
+        }
         res.json(
           await service.updateMiembroContacto(
             req.params.grupoId,
@@ -116,7 +187,14 @@ export function createGruposTrabajoRouter(
         validationError(res, "Estado de miembro inválido", parsed.error);
         return;
       }
+      const authReq = req as AuthenticatedRequest;
+      const { rol, municipalidadId } = authReq.auth!;
       try {
+        const grupo = await service.getGrupoById(req.params.grupoId);
+        if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+          res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+          return;
+        }
         res.json(
           await service.setMiembroActivo(
             req.params.grupoId,
@@ -136,7 +214,14 @@ export function createGruposTrabajoRouter(
       validationError(res, "Motivo de eliminación inválido", parsed.error);
       return;
     }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
     try {
+      const grupo = await service.getGrupoById(req.params.grupoId);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+        return;
+      }
       res.json(
         await service.deleteMiembro(
           req.params.grupoId,
@@ -155,7 +240,14 @@ export function createGruposTrabajoRouter(
       validationError(res, "Datos de estado inválidos", parsed.error);
       return;
     }
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
     try {
+      const grupo = await service.getGrupoById(req.params.id);
+      if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
+        return;
+      }
       res.json(
         await service.updateGrupoEstado(
           req.params.id,
