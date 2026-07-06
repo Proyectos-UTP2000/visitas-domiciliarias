@@ -162,6 +162,7 @@ model GrupoTrabajo {
   establecimientos GrupoEstablecimiento[]
   miembros         MiembroGrupo[]
   actoresSociales  ActorSocial[]
+  archivos         GrupoTrabajoArchivo[]
 
   @@index([municipalidadId])
   @@map("grupo_trabajo")
@@ -289,3 +290,17 @@ model ActorSocial {
   @@unique([municipalidadId, dni])
   @@map("actor_social")
 }
+
+model GrupoTrabajoArchivo {
+  id             String   @id @default(uuid()) @db.Uuid
+  grupoTrabajoId String   @map("grupo_trabajo_id") @db.Uuid
+  nombreArchivo  String   @map("nombre_archivo") @db.VarChar(255)
+  rutaArchivo    String   @map("ruta_archivo") @db.Text
+  mimeType       String   @map("mime_type") @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  grupoTrabajo   GrupoTrabajo @relation(fields: [grupoTrabajoId], references: [id], onDelete: Cascade)
+
+  @@map("grupo_trabajo_archivo")
+}
+
