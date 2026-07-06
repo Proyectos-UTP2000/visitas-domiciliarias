@@ -4,6 +4,7 @@ import type {
   GrupoEstablecimientoRecord,
   GrupoTrabajoCreateInput,
   GrupoTrabajoRecord,
+  GrupoTrabajoRecordWithRelations,
   GruposTrabajoRepository,
   MiembroGrupoContactoInput,
   MiembroGrupoCreateInput,
@@ -18,11 +19,27 @@ const NOTIFICATION_MESSAGE =
 export class GruposTrabajoService {
   constructor(private readonly repository: GruposTrabajoRepository) {}
 
-  list(): Promise<GrupoTrabajoRecord[]> {
-    return this.repository.list();
+  list(municipalidadId: string | null): Promise<GrupoTrabajoRecord[]> {
+    return this.repository.list(municipalidadId);
   }
 
-  createGrupo(input: GrupoTrabajoCreateInput): Promise<GrupoTrabajoRecord> {
+  async getGrupoById(id: string): Promise<GrupoTrabajoRecordWithRelations> {
+    const grupo = await this.repository.findFullGrupoById(id);
+    if (!grupo) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+    return grupo;
+  }
+
+  async createGrupo(input: GrupoTrabajoCreateInput): Promise<GrupoTrabajoRecord> {
+    const existingGroups = await this.repository.list(input.municipalidadId);
+    const duplicate = existingGroups.find(
+      (g) => g.dniRepresentante === input.dniRepresentante && g.periodoYear === input.periodoYear
+    );
+    if (duplicate) {
+      throw new HttpError(400, "El DNI del representante ya está registrado para este periodo");
+    }
+
     return this.repository.createGrupo({
       ...input,
       fechaLimite: normalizeDate(input.fechaLimite),
@@ -32,11 +49,45 @@ export class GruposTrabajoService {
     });
   }
 
+  async updateGrupo(
+    id: string,
+    input: Partial<GrupoTrabajoCreateInput>
+  ): Promise<GrupoTrabajoRecord> {
+    const existing = await this.repository.findGrupoById(id);
+    if (!existing) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+
+    if (existing.estado !== "BORRADOR" && existing.estado !== "OBSERVADO") {
+      throw new HttpError(400, "Solo se pueden editar grupos de trabajo en estado borrador u observado");
+    }
+
+    if (input.dniRepresentante !== undefined || input.periodoYear !== undefined) {
+      const period = input.periodoYear ?? existing.periodoYear;
+      const dni = input.dniRepresentante ?? existing.dniRepresentante;
+
+      const siblingGroups = await this.repository.list(existing.municipalidadId);
+      const duplicate = siblingGroups.find(
+        (g) => g.id !== id && g.dniRepresentante === dni && g.periodoYear === period
+      );
+      if (duplicate) {
+        throw new HttpError(400, "El DNI del representante ya está registrado para este periodo");
+      }
+    }
+
+    const updateData: Partial<GrupoTrabajoCreateInput> = { ...input };
+    if (input.fechaLimite) {
+      updateData.fechaLimite = normalizeDate(input.fechaLimite);
+    }
+
+    return this.repository.updateGrupo(id, updateData);
+  }
+
   async createEstablecimiento(
     grupoTrabajoId: string,
     input: GrupoEstablecimientoCreateInput,
   ): Promise<GrupoEstablecimientoRecord> {
-    await this.ensureGrupoExists(grupoTrabajoId);
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
     return this.repository.createEstablecimiento({
       grupoTrabajoId,
       ...input,
@@ -50,7 +101,17 @@ export class GruposTrabajoService {
     grupoTrabajoId: string,
     input: MiembroGrupoCreateInput,
   ): Promise<MiembroGrupoRecord> {
-    await this.ensureGrupoExists(grupoTrabajoId);
+    const grupo = await this.repository.findFullGrupoById(grupoTrabajoId);
+    if (!grupo) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+    this.ensureGrupoEditable(grupo.estado);
+
+    const duplicate = grupo.miembros.find((m) => m.dni === input.dni);
+    if (duplicate) {
+      throw new HttpError(400, "El miembro con este DNI ya está registrado en este grupo de trabajo");
+    }
+
     await this.ensureCargoExists(input.cargoMiembroGrupoId);
     await this.ensureEstablecimientoBelongsToGrupo(
       grupoTrabajoId,
@@ -73,7 +134,7 @@ export class GruposTrabajoService {
     miembroId: string,
     input: MiembroGrupoContactoInput,
   ): Promise<MiembroGrupoRecord> {
-    await this.ensureGrupoExists(grupoTrabajoId);
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
     await this.ensureEstablecimientoBelongsToGrupo(
       grupoTrabajoId,
       input.grupoEstablecimientoId ?? null,
@@ -91,7 +152,7 @@ export class GruposTrabajoService {
     miembroId: string,
     activo: boolean,
   ): Promise<MiembroGrupoRecord> {
-    await this.ensureGrupoExists(grupoTrabajoId);
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
     return this.repository.setMiembroActivo(grupoTrabajoId, miembroId, activo);
   }
 
@@ -100,6 +161,7 @@ export class GruposTrabajoService {
     miembroId: string,
     input: MiembroGrupoDeleteInput,
   ): Promise<MiembroGrupoDeleteResult> {
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
     const motivoEliminacion = input.motivoEliminacion.trim();
     if (!motivoEliminacion) {
       throw new HttpError(400, "El motivo de eliminación es obligatorio");
@@ -127,10 +189,19 @@ export class GruposTrabajoService {
     return this.repository.updateGrupoEstado(id, estado, observaciones?.trim() || null);
   }
 
-  private async ensureGrupoExists(grupoTrabajoId: string): Promise<void> {
-    if (!(await this.repository.findGrupoById(grupoTrabajoId))) {
+  private ensureGrupoEditable(estado: string): void {
+    if (estado !== "BORRADOR" && estado !== "OBSERVADO") {
+      throw new HttpError(400, "Solo se pueden modificar grupos de trabajo en estado borrador u observado");
+    }
+  }
+
+  private async getGrupoAndEnsureEditable(grupoTrabajoId: string) {
+    const grupo = await this.repository.findGrupoById(grupoTrabajoId);
+    if (!grupo) {
       throw new HttpError(404, "Grupo de trabajo no encontrado");
     }
+    this.ensureGrupoEditable(grupo.estado);
+    return grupo;
   }
 
   private async ensureCargoExists(cargoMiembroGrupoId: string): Promise<void> {

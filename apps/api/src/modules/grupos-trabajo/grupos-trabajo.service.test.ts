@@ -3,11 +3,20 @@ import { GruposTrabajoService } from "./grupos-trabajo.service.js";
 
 function createRepository(overrides: Record<string, unknown> = {}) {
   return {
-    list: vi.fn(),
-    findGrupoById: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
+    findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1", estado: "BORRADOR" }),
+    findFullGrupoById: vi.fn().mockResolvedValue({
+      id: "grupo-1",
+      municipalidadId: "mun-1",
+      estado: "BORRADOR",
+      miembros: [],
+      establecimientos: [],
+      archivos: [],
+    }),
     findCargoById: vi.fn(),
     findEstablecimientoById: vi.fn(),
     createGrupo: vi.fn(),
+    updateGrupo: vi.fn(),
     createEstablecimiento: vi.fn(),
     createMiembro: vi.fn(),
     updateMiembroContacto: vi.fn(),
@@ -63,7 +72,7 @@ describe("GruposTrabajoService", () => {
     });
     const service = new GruposTrabajoService(
       createRepository({
-        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1" }),
+        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "BORRADOR" }),
         createEstablecimiento,
       }),
     );
@@ -172,7 +181,7 @@ describe("GruposTrabajoService", () => {
     });
     const service = new GruposTrabajoService(
       createRepository({
-        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1" }),
+        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "BORRADOR" }),
         findEstablecimientoById: vi.fn().mockResolvedValue({
           id: "est-1",
           grupoTrabajoId: "grupo-1",
@@ -253,6 +262,61 @@ describe("GruposTrabajoService", () => {
 
     await expect(
       service.updateGrupoEstado("grupo-1", "RECHAZADO", ""),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("rejects representative DNI duplicate on createGrupo", async () => {
+    const service = new GruposTrabajoService(
+      createRepository({
+        list: vi.fn().mockResolvedValue([
+          { dniRepresentante: "12345678", periodoYear: 2026 },
+        ]),
+      }),
+    );
+
+    await expect(
+      service.createGrupo({
+        municipalidadId: "mun-1",
+        fechaLimite: "2026-07-01",
+        nombreGrupo: "Grupo 2026 B",
+        periodoYear: 2026,
+        dniRepresentante: "12345678",
+        nombreRepresentante: "Juan",
+        apellidosRepresentante: "Perez",
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("rejects modifications when group is not in BORRADOR or OBSERVADO", async () => {
+    const service = new GruposTrabajoService(
+      createRepository({
+        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "REGISTRADO" }),
+      }),
+    );
+
+    await expect(
+      service.createEstablecimiento("grupo-1", { nombre: "Posta B" }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("rejects member DNI duplicate inside a group", async () => {
+    const service = new GruposTrabajoService(
+      createRepository({
+        findFullGrupoById: vi.fn().mockResolvedValue({
+          id: "grupo-1",
+          estado: "BORRADOR",
+          miembros: [{ dni: "12345678" }],
+        }),
+      }),
+    );
+
+    await expect(
+      service.createMiembro("grupo-1", {
+        cargoMiembroGrupoId: "cargo-1",
+        dni: "12345678",
+        nombres: "Juan",
+        apellidos: "Perez",
+      }),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
