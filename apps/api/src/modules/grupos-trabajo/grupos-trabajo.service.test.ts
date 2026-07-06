@@ -22,6 +22,10 @@ function createRepository(overrides: Record<string, unknown> = {}) {
     updateMiembroContacto: vi.fn(),
     setMiembroActivo: vi.fn(),
     deleteMiembro: vi.fn(),
+    createArchivo: vi.fn(),
+    findArchivoById: vi.fn(),
+    listArchivos: vi.fn(),
+    deleteArchivo: vi.fn(),
     ...overrides,
   };
 }

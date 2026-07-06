@@ -2,6 +2,7 @@ import { HttpError } from "../../shared/http-error.js";
 import type {
   GrupoEstablecimientoCreateInput,
   GrupoEstablecimientoRecord,
+  GrupoTrabajoArchivoRecord,
   GrupoTrabajoCreateInput,
   GrupoTrabajoRecord,
   GrupoTrabajoRecordWithRelations,
@@ -187,6 +188,46 @@ export class GruposTrabajoService {
       throw new HttpError(400, "Las observaciones son obligatorias para este estado");
     }
     return this.repository.updateGrupoEstado(id, estado, observaciones?.trim() || null);
+  }
+
+  async listArchivos(grupoTrabajoId: string): Promise<GrupoTrabajoArchivoRecord[]> {
+    const grupo = await this.repository.findGrupoById(grupoTrabajoId);
+    if (!grupo) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+    return this.repository.listArchivos(grupoTrabajoId);
+  }
+
+  async createArchivo(
+    grupoTrabajoId: string,
+    data: {
+      nombreArchivo: string;
+      rutaArchivo: string;
+      mimeType: string;
+    }
+  ): Promise<GrupoTrabajoArchivoRecord> {
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
+    return this.repository.createArchivo({
+      grupoTrabajoId,
+      ...data,
+    });
+  }
+
+  async getArchivoById(archivoId: string): Promise<GrupoTrabajoArchivoRecord> {
+    const archivo = await this.repository.findArchivoById(archivoId);
+    if (!archivo) {
+      throw new HttpError(404, "Archivo no encontrado");
+    }
+    return archivo;
+  }
+
+  async deleteArchivo(grupoTrabajoId: string, archivoId: string): Promise<GrupoTrabajoArchivoRecord> {
+    await this.getGrupoAndEnsureEditable(grupoTrabajoId);
+    const archivo = await this.getArchivoById(archivoId);
+    if (archivo.grupoTrabajoId !== grupoTrabajoId) {
+      throw new HttpError(400, "El archivo no pertenece al grupo de trabajo indicado");
+    }
+    return this.repository.deleteArchivo(archivoId);
   }
 
   private ensureGrupoEditable(estado: string): void {
