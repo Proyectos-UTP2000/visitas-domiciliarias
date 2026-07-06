@@ -6,6 +6,7 @@ import { createGrupo, listGrupos } from "../grupos-api";
 import type { GrupoTrabajoFormState, GrupoTrabajoRecord } from "../grupos-types";
 import { emptyGrupoForm, filterGrupos } from "../grupos-utils";
 import { getStoredSession } from "../../auth/auth-storage";
+import { consultarDni } from "../../dni/dni-api";
 
 export function GruposPage() {
   const navigate = useNavigate();
@@ -17,8 +18,31 @@ export function GruposPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSearchingDni, setIsSearchingDni] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  async function handleDniLookup() {
+    const dni = form.dniRepresentante.trim();
+    if (!/^\d{8}$/.test(dni)) {
+      setError("El DNI del representante debe tener exactamente 8 dígitos.");
+      return;
+    }
+    setIsSearchingDni(true);
+    setError(null);
+    try {
+      const datos = await consultarDni(dni);
+      setForm((curr) => ({
+        ...curr,
+        nombreRepresentante: datos.nombres,
+        apellidosRepresentante: `${datos.ape_paterno} ${datos.ape_materno}`,
+      }));
+    } catch (err: any) {
+      setError(err.message || "No se encontró el DNI o hubo un error al realizar la consulta.");
+    } finally {
+      setIsSearchingDni(false);
+    }
+  }
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -311,17 +335,29 @@ export function GruposPage() {
                     value={form.fechaLimite}
                   />
                 </label>
-                <label className="field">
+                <div className="field">
                   DNI Representante
-                  <input
-                    maxLength={8}
-                    onChange={(e) =>
-                      setForm((curr) => ({ ...curr, dniRepresentante: e.target.value }))
-                    }
-                    required
-                    value={form.dniRepresentante}
-                  />
-                </label>
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                    <input
+                      maxLength={8}
+                      onChange={(e) =>
+                        setForm((curr) => ({ ...curr, dniRepresentante: e.target.value }))
+                      }
+                      required
+                      style={{ flex: 1, marginTop: 0 }}
+                      value={form.dniRepresentante}
+                    />
+                    <button
+                      className="admin-button is-secondary"
+                      disabled={isSearchingDni}
+                      onClick={handleDniLookup}
+                      style={{ padding: "0 1rem", height: "38px", minHeight: "38px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      type="button"
+                    >
+                      {isSearchingDni ? "..." : "Consultar"}
+                    </button>
+                  </div>
+                </div>
                 <label className="field">
                   Nombre Representante
                   <input
