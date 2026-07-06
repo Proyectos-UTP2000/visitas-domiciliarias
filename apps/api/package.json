@@ -24,6 +24,7 @@
     "express": "^5.2.1",
     "helmet": "latest",
     "jsonwebtoken": "latest",
+    "multer": "^2.2.0",
     "nodemailer": "^8.0.11",
     "zod": "latest"
   },
@@ -32,6 +33,7 @@
     "@types/cors": "latest",
     "@types/express": "latest",
     "@types/jsonwebtoken": "latest",
+    "@types/multer": "^2.2.0",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "eslint": "latest",
