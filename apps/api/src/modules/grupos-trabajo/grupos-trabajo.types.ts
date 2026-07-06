@@ -83,9 +83,25 @@ export type MiembroGrupoDeleteResult = MiembroGrupoRecord & {
   notificationMessage: string;
 };
 
+export type GrupoTrabajoArchivoRecord = {
+  id: string;
+  grupoTrabajoId: string;
+  nombreArchivo: string;
+  rutaArchivo: string;
+  mimeType: string;
+  createdAt: Date;
+};
+
+export type GrupoTrabajoRecordWithRelations = GrupoTrabajoRecord & {
+  establecimientos: GrupoEstablecimientoRecord[];
+  miembros: MiembroGrupoRecord[];
+  archivos: GrupoTrabajoArchivoRecord[];
+};
+
 export type GruposTrabajoRepository = {
-  list(): Promise<GrupoTrabajoRecord[]>;
-  findGrupoById(id: string): Promise<{ id: string } | null>;
+  list(municipalidadId: string | null): Promise<GrupoTrabajoRecord[]>;
+  findGrupoById(id: string): Promise<{ id: string; municipalidadId: string; estado: EstadoGrupoTrabajo } | null>;
+  findFullGrupoById(id: string): Promise<GrupoTrabajoRecordWithRelations | null>;
   findCargoById(id: string): Promise<{ id: string } | null>;
   findEstablecimientoById(
     id: string,
@@ -96,6 +112,10 @@ export type GruposTrabajoRepository = {
       activo: true;
       archivado: false;
     },
+  ): Promise<GrupoTrabajoRecord>;
+  updateGrupo(
+    id: string,
+    data: Partial<GrupoTrabajoCreateInput>
   ): Promise<GrupoTrabajoRecord>;
   createEstablecimiento(
     data: GrupoEstablecimientoCreateInput & {

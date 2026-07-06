@@ -6,6 +6,7 @@ import type {
   GrupoEstablecimientoRecord,
   GrupoTrabajoCreateInput,
   GrupoTrabajoRecord,
+  GrupoTrabajoRecordWithRelations,
   GruposTrabajoRepository,
   MiembroGrupoContactoInput,
   MiembroGrupoCreateInput,
@@ -16,21 +17,64 @@ import type {
 export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  list(): Promise<GrupoTrabajoRecord[]> {
+  list(municipalidadId: string | null): Promise<GrupoTrabajoRecord[]> {
+    const where: Prisma.GrupoTrabajoWhereInput = { archivado: false };
+    if (municipalidadId) {
+      where.municipalidadId = municipalidadId;
+    }
     return this.prisma.grupoTrabajo.findMany({
+      where,
       orderBy: [{ periodoYear: "desc" }, { nombreGrupo: "asc" }],
       include: {
         establecimientos: true,
-        miembros: true,
+        miembros: {
+          where: { archivado: false },
+        },
+        archivos: true,
       },
     }) as unknown as Promise<GrupoTrabajoRecord[]>;
   }
 
-  findGrupoById(id: string): Promise<{ id: string } | null> {
+  findGrupoById(id: string): Promise<{ id: string; municipalidadId: string; estado: EstadoGrupoTrabajo } | null> {
     return this.prisma.grupoTrabajo.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, municipalidadId: true, estado: true },
     });
+  }
+
+  findFullGrupoById(id: string): Promise<GrupoTrabajoRecordWithRelations | null> {
+    return this.prisma.grupoTrabajo.findUnique({
+      where: { id, archivado: false },
+      include: {
+        establecimientos: true,
+        miembros: {
+          where: { archivado: false },
+        },
+        archivos: true,
+      },
+    }) as unknown as Promise<GrupoTrabajoRecordWithRelations | null>;
+  }
+
+  createGrupo(
+    data: GrupoTrabajoCreateInput & {
+      estado: "BORRADOR";
+      activo: true;
+      archivado: false;
+    },
+  ): Promise<GrupoTrabajoRecord> {
+    return this.prisma.grupoTrabajo.create({
+      data,
+    });
+  }
+
+  updateGrupo(
+    id: string,
+    data: Partial<GrupoTrabajoCreateInput>,
+  ): Promise<GrupoTrabajoRecord> {
+    return this.prisma.grupoTrabajo.update({
+      where: { id },
+      data,
+    }) as unknown as Promise<GrupoTrabajoRecord>;
   }
 
   findCargoById(id: string): Promise<{ id: string } | null> {
@@ -46,18 +90,6 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
     return this.prisma.grupoEstablecimiento.findUnique({
       where: { id },
       select: { id: true, grupoTrabajoId: true },
-    });
-  }
-
-  createGrupo(
-    data: GrupoTrabajoCreateInput & {
-      estado: "BORRADOR";
-      activo: true;
-      archivado: false;
-    },
-  ): Promise<GrupoTrabajoRecord> {
-    return this.prisma.grupoTrabajo.create({
-      data,
     });
   }
 
