@@ -4,6 +4,7 @@ import type {
   EstadoGrupoTrabajo,
   GrupoEstablecimientoCreateInput,
   GrupoEstablecimientoRecord,
+  GrupoTrabajoArchivoRecord,
   GrupoTrabajoCreateInput,
   GrupoTrabajoRecord,
   GrupoTrabajoRecordWithRelations,
@@ -186,5 +187,37 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
         observaciones: observaciones ?? null,
       },
     }) as unknown as Promise<GrupoTrabajoRecord>;
+  }
+
+  async createArchivo(
+    data: {
+      grupoTrabajoId: string;
+      nombreArchivo: string;
+      rutaArchivo: string;
+      mimeType: string;
+    }
+  ): Promise<GrupoTrabajoArchivoRecord> {
+    return this.prisma.grupoTrabajoArchivo.create({
+      data,
+    });
+  }
+
+  async findArchivoById(id: string): Promise<GrupoTrabajoArchivoRecord | null> {
+    return this.prisma.grupoTrabajoArchivo.findUnique({
+      where: { id },
+    });
+  }
+
+  async listArchivos(grupoTrabajoId: string): Promise<GrupoTrabajoArchivoRecord[]> {
+    return this.prisma.grupoTrabajoArchivo.findMany({
+      where: { grupoTrabajoId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async deleteArchivo(id: string): Promise<GrupoTrabajoArchivoRecord> {
+    return this.prisma.grupoTrabajoArchivo.delete({
+      where: { id },
+    });
   }
 }

@@ -151,4 +151,15 @@ export type GruposTrabajoRepository = {
     estado: EstadoGrupoTrabajo,
     observaciones?: string | null,
   ): Promise<GrupoTrabajoRecord>;
+  createArchivo(
+    data: {
+      grupoTrabajoId: string;
+      nombreArchivo: string;
+      rutaArchivo: string;
+      mimeType: string;
+    }
+  ): Promise<GrupoTrabajoArchivoRecord>;
+  findArchivoById(id: string): Promise<GrupoTrabajoArchivoRecord | null>;
+  listArchivos(grupoTrabajoId: string): Promise<GrupoTrabajoArchivoRecord[]>;
+  deleteArchivo(id: string): Promise<GrupoTrabajoArchivoRecord>;
 };
