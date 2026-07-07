@@ -46,6 +46,15 @@ export function GrupoDetailPage() {
 
   const [activeTab, setActiveTab] = useState<"estab" | "miembro" | "otros_docs" | "actas">("estab");
   const [archivos, setArchivos] = useState<GrupoTrabajoArchivoRecord[]>([]);
+
+  const otrosDocs = useMemo(() => {
+    return archivos.filter((f) => !f.nombreArchivo.toLowerCase().includes("acta"));
+  }, [archivos]);
+
+  const actasDocs = useMemo(() => {
+    return archivos.filter((f) => f.nombreArchivo.toLowerCase().includes("acta"));
+  }, [archivos]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -528,7 +537,7 @@ export function GrupoDetailPage() {
                 }}
                 type="button"
               >
-                Otros Documentos ({archivos.length})
+                Otros Documentos ({otrosDocs.length})
               </button>
               <button
                 onClick={() => setActiveTab("actas")}
@@ -545,7 +554,7 @@ export function GrupoDetailPage() {
                 }}
                 type="button"
               >
-                Actas del Grupo ({archivos.filter(f => f.nombreArchivo.toLowerCase().includes("acta")).length})
+                Actas del Grupo ({actasDocs.length})
               </button>
             </div>
 
@@ -764,7 +773,7 @@ export function GrupoDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {archivos.map((file) => (
+                       {otrosDocs.map((file) => (
                         <tr key={file.id}>
                           <td>{file.nombreArchivo}</td>
                           <td>{file.mimeType}</td>
@@ -803,7 +812,7 @@ export function GrupoDetailPage() {
                           </td>
                         </tr>
                       ))}
-                      {archivos.length === 0 ? (
+                      {otrosDocs.length === 0 ? (
                         <tr>
                           <td className="admin-empty-cell" colSpan={4}>
                             No hay documentos registrados para este grupo de trabajo.
@@ -831,7 +840,7 @@ export function GrupoDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {archivos.map((file) => (
+                      {actasDocs.map((file) => (
                         <tr key={file.id}>
                           <td>{file.nombreArchivo}</td>
                           <td>{new Date(file.createdAt).toLocaleString()}</td>
@@ -846,7 +855,7 @@ export function GrupoDetailPage() {
                           </td>
                         </tr>
                       ))}
-                      {archivos.length === 0 ? (
+                      {actasDocs.length === 0 ? (
                         <tr>
                           <td className="admin-empty-cell" colSpan={3}>
                             No hay actas registradas para este grupo de trabajo.
