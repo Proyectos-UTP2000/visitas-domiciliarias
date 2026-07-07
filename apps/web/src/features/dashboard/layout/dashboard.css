@@ -313,8 +313,21 @@
     border-spacing: 0;
     border: 1px solid var(--border);
     border-radius: 0.8rem;
-    overflow: hidden;
+    overflow: visible;
     text-align: left;
+}
+
+.admin-table th:first-child {
+    border-top-left-radius: 0.8rem;
+}
+.admin-table th:last-child {
+    border-top-right-radius: 0.8rem;
+}
+.admin-table tr:last-child td:first-child {
+    border-bottom-left-radius: 0.8rem;
+}
+.admin-table tr:last-child td:last-child {
+    border-bottom-right-radius: 0.8rem;
 }
 
 .admin-table th,
