@@ -88,6 +88,7 @@ model Municipalidad {
   gruposTrabajo   GrupoTrabajo[]
   sectores        Sector[]
   actoresSociales ActorSocial[]
+  centrosPoblados CentroPoblado[]
 
   @@unique([ubigeo, codigo])
   @@map("municipalidad")
@@ -180,6 +181,7 @@ model GrupoEstablecimiento {
 
   grupoTrabajo GrupoTrabajo   @relation(fields: [grupoTrabajoId], references: [id])
   miembros     MiembroGrupo[]
+  actoresSociales ActorSocial[]
 
   @@unique([grupoTrabajoId, codigo])
   @@index([grupoTrabajoId])
@@ -215,11 +217,11 @@ model MiembroGrupo {
 model Sector {
   id              String     @id @default(uuid()) @db.Uuid
   municipalidadId String     @map("municipalidad_id") @db.Uuid
+  centroPobladoId String     @map("centro_poblado_id") @db.Uuid
   codigo          String     @db.VarChar(100)
   departamento    String     @db.VarChar(100)
   provincia       String     @db.VarChar(100)
   distrito        String     @db.VarChar(100)
-  centroPoblado   String     @map("centro_poblado") @db.VarChar(100)
   nombreSector    String     @map("nombre_sector") @db.VarChar(100)
   tipoSector      TipoSector @map("tipo_sector")
   activo          Boolean    @default(true)
@@ -227,9 +229,13 @@ model Sector {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
-  municipalidad Municipalidad @relation(fields: [municipalidadId], references: [id])
-  urbano        SectorUrbano?
-  rural         SectorRural?
+  municipalidad   Municipalidad @relation(fields: [municipalidadId], references: [id])
+  centroPoblado   CentroPoblado @relation(fields: [centroPobladoId], references: [id])
+  urbano          SectorUrbano?
+  rural           SectorRural?
+
+  actoresSociales           ActorSocial[] @relation("ActorSocialSectores")
+  actoresSocialesACorregir  ActorSocial[] @relation("ActorSocialSectoresACorregir")
 
   @@unique([municipalidadId, codigo])
   @@map("sector")
@@ -257,35 +263,42 @@ model SectorUrbano {
 }
 
 model ActorSocial {
-  id                String            @id @default(uuid()) @db.Uuid
-  usuarioId         String?           @unique @map("usuario_id") @db.Uuid
-  municipalidadId   String            @map("municipalidad_id") @db.Uuid
-  tipoActorSocialId String            @map("tipo_actor_social_id") @db.Uuid
-  grupoTrabajoId    String            @map("grupo_trabajo_id") @db.Uuid
-  entidadId         String?           @map("entidad_id") @db.Uuid
-  dni               String            @db.VarChar(8)
-  nombres           String            @db.VarChar(150)
-  apellidos         String            @db.VarChar(150)
-  direccion         String            @db.VarChar(200)
-  centroPoblado     String?           @map("centro_poblado") @db.VarChar(100)
-  fechaNac          DateTime          @map("fecha_nac") @db.Date
-  email             String            @db.VarChar(150)
-  celular           String            @db.VarChar(9)
-  idiomaOrigen      String            @map("idioma_origen") @db.VarChar(100)
-  gradoInstruccion  String            @map("grado_instruccion") @db.VarChar(100)
-  estado            EstadoActorSocial @default(BORRADOR)
-  activo            Boolean           @default(true)
-  archivado         Boolean           @default(false)
-  deletedAt         DateTime?         @map("deleted_at")
-  motivoEliminacion String?           @map("motivo_eliminacion") @db.Text
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  id                         String            @id @default(uuid()) @db.Uuid
+  usuarioId                  String?           @unique @map("usuario_id") @db.Uuid
+  municipalidadId            String            @map("municipalidad_id") @db.Uuid
+  tipoActorSocialId          String            @map("tipo_actor_social_id") @db.Uuid
+  grupoTrabajoId             String            @map("grupo_trabajo_id") @db.Uuid
+  grupoEstablecimientoId     String?           @map("grupo_establecimiento_id") @db.Uuid
+  entidadId                  String?           @map("entidad_id") @db.Uuid
+  centroPobladoId            String?           @map("centro_poblado_id") @db.Uuid
+  dni                        String            @db.VarChar(8)
+  nombres                    String            @db.VarChar(150)
+  apellidos                  String            @db.VarChar(150)
+  direccion                  String            @db.VarChar(200)
+  fechaNac                   DateTime          @map("fecha_nac") @db.Date
+  email                      String            @db.VarChar(150)
+  celular                    String            @db.VarChar(9)
+  idiomaOrigen               String            @map("idioma_origen") @db.VarChar(100)
+  gradoInstruccion           String            @map("grado_instruccion") @db.VarChar(100)
+  estado                     EstadoActorSocial @default(BORRADOR)
+  activo                     Boolean           @default(true)
+  inactivadoPermanentemente  Boolean           @default(false) @map("inactivado_permanentemente")
+  archivado                  Boolean           @default(false)
+  deletedAt                  DateTime?         @map("deleted_at")
+  motivoEliminacion          String?           @map("motivo_eliminacion") @db.Text
+  createdAt                  DateTime          @default(now()) @map("created_at")
+  updatedAt                  DateTime          @updatedAt @map("updated_at")
 
-  usuario         Usuario?        @relation(fields: [usuarioId], references: [id])
-  municipalidad   Municipalidad   @relation(fields: [municipalidadId], references: [id])
-  tipoActorSocial TipoActorSocial @relation(fields: [tipoActorSocialId], references: [id])
-  grupoTrabajo    GrupoTrabajo    @relation(fields: [grupoTrabajoId], references: [id])
-  entidad         Entidad?        @relation(fields: [entidadId], references: [id])
+  usuario              Usuario?              @relation(fields: [usuarioId], references: [id])
+  municipalidad        Municipalidad         @relation(fields: [municipalidadId], references: [id])
+  tipoActorSocial      TipoActorSocial       @relation(fields: [tipoActorSocialId], references: [id])
+  grupoTrabajo         GrupoTrabajo          @relation(fields: [grupoTrabajoId], references: [id])
+  grupoEstablecimiento GrupoEstablecimiento? @relation(fields: [grupoEstablecimientoId], references: [id])
+  entidad              Entidad?              @relation(fields: [entidadId], references: [id])
+  centroPoblado        CentroPoblado?        @relation(fields: [centroPobladoId], references: [id])
+
+  sectores             Sector[]              @relation("ActorSocialSectores")
+  sectoresACorregir    Sector[]              @relation("ActorSocialSectoresACorregir")
 
   @@unique([municipalidadId, dni])
   @@map("actor_social")
@@ -302,5 +315,30 @@ model GrupoTrabajoArchivo {
   grupoTrabajo   GrupoTrabajo @relation(fields: [grupoTrabajoId], references: [id], onDelete: Cascade)
 
   @@map("grupo_trabajo_archivo")
+}
+
+model CentroPoblado {
+  id              String   @id @default(uuid()) @db.Uuid
+  municipalidadId String   @map("municipalidad_id") @db.Uuid
+  nombre          String   @db.VarChar(150)
+  codigo          String?  @db.VarChar(50)
+  tipo            String   @db.VarChar(50) // "URBANO" | "RURAL"
+  
+  // Rural-only fields
+  latitud         Float?   @db.DoublePrecision
+  longitud        Float?   @db.DoublePrecision
+  poblacion       Int?
+
+  activo          Boolean  @default(true)
+  archivado       Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  municipalidad   Municipalidad @relation(fields: [municipalidadId], references: [id])
+  sectores        Sector[]
+  actoresSociales ActorSocial[]
+
+  @@unique([municipalidadId, nombre, tipo])
+  @@map("centro_poblado")
 }
 
