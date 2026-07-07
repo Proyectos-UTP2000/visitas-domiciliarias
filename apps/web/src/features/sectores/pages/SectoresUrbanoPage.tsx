@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { LuSearch } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
@@ -77,6 +77,9 @@ export function SectoresUrbanoPage() {
     return centrosPoblados.find((cp) => cp.id === form.centroPobladoId)?.nombre || "";
   }, [centrosPoblados, form.centroPobladoId]);
 
+  const [groupBy, setGroupBy] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
   const filteredRecords = useMemo(() => {
     return filterSectores(records, query, "URBANO", muniFilter);
   }, [records, query, muniFilter]);
@@ -88,6 +91,69 @@ export function SectoresUrbanoPage() {
     });
     return map;
   }, [municipalidades]);
+
+  const sortedRecords = useMemo(() => {
+    if (!sortConfig) return filteredRecords;
+    return [...filteredRecords].sort((a: any, b: any) => {
+      let aVal = "";
+      let bVal = "";
+
+      if (sortConfig.key === "municipalidad") {
+        aVal = munisMap[a.municipalidadId] || "";
+        bVal = munisMap[b.municipalidadId] || "";
+      } else if (sortConfig.key === "centroPoblado") {
+        aVal = a.centroPoblado?.nombre || "";
+        bVal = b.centroPoblado?.nombre || "";
+      } else if (sortConfig.key === "zona") {
+        aVal = a.urbano?.zona || "";
+        bVal = b.urbano?.zona || "";
+      } else if (sortConfig.key === "manzana") {
+        aVal = a.urbano?.manzana || "";
+        bVal = b.urbano?.manzana || "";
+      } else {
+        aVal = a[sortConfig.key] || "";
+        bVal = b[sortConfig.key] || "";
+      }
+
+      const aStr = String(aVal).toLowerCase().trim();
+      const bStr = String(bVal).toLowerCase().trim();
+
+      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRecords, sortConfig, munisMap]);
+
+  const groupedRecords = useMemo(() => {
+    if (!groupBy) return null;
+    const groups: Record<string, SectorRecord[]> = {};
+    sortedRecords.forEach((r) => {
+      let groupKey = "";
+      if (groupBy === "municipalidad") {
+        groupKey = munisMap[r.municipalidadId] || "Sin Municipalidad";
+      } else if (groupBy === "centroPoblado") {
+        groupKey = r.centroPoblado?.nombre || "Sin Centro Poblado";
+      }
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(r);
+    });
+    return groups;
+  }, [sortedRecords, groupBy, munisMap]);
+
+  function handleSort(key: string) {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  }
+
+  function getSortIcon(key: string) {
+    if (!sortConfig || sortConfig.key !== key) return " ↕";
+    return sortConfig.direction === "asc" ? " ▲" : " ▼";
+  }
 
   useEffect(() => {
     const session = getStoredSession();
@@ -271,6 +337,67 @@ export function SectoresUrbanoPage() {
     alert("Función 'Asignar Sectorización' está diferida y será implementada en la fase V2.");
   }
 
+  function renderRow(r: SectorRecord) {
+    return (
+      <tr key={r.id} style={{ opacity: r.activo ? 1 : 0.6 }}>
+        <td style={{ textAlign: "center" }}>
+          <input
+            type="checkbox"
+            checked={selectedIds.has(r.id)}
+            onChange={() => handleSelectRow(r.id)}
+          />
+        </td>
+        <td>{r.centroPoblado?.nombre || "-"}</td>
+        <td>{r.urbano?.zona}</td>
+        <td>{r.urbano?.manzana}</td>
+        <td>{r.nombreSector}</td>
+        {user?.rol === "ADMIN_GENERAL" && (
+          <td>{munisMap[r.municipalidadId] || "Cargando..."}</td>
+        )}
+        <td>
+          <span className={`status-pill ${r.activo ? "is-active" : "is-muted"}`}>
+            {r.activo ? "Activo" : "Inactivo"}
+          </span>
+        </td>
+        <td>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              className="admin-button is-ghost"
+              style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+              onClick={() => handleEditClick(r)}
+              type="button"
+            >
+              Editar
+            </button>
+            <button
+              className="admin-button is-ghost"
+              style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+              onClick={() => handleToggleActivo(r)}
+              type="button"
+            >
+              {r.activo ? "Inactivar" : "Activar"}
+            </button>
+            <button
+              className="admin-button is-ghost"
+              style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+              onClick={() => {
+                setConfirmConfig({
+                  isOpen: true,
+                  title: "Archivar Sector Urbano",
+                  message: `¿Seguro que deseas archivar el sector urbano "${r.nombreSector}"? Esta acción lo retirará del listado operativo.`,
+                  onConfirm: () => handleArchivar(r),
+                });
+              }}
+              type="button"
+            >
+              Archivar
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <>
       <div className="admin-page-heading">
@@ -316,8 +443,8 @@ export function SectoresUrbanoPage() {
             />
           </div>
 
-          {user?.rol === "ADMIN_GENERAL" && (
-            <div className="admin-actions-group">
+          <div className="admin-actions-group" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+            {user?.rol === "ADMIN_GENERAL" && (
               <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                 <span>Municipalidad:</span>
                 <select value={muniFilter} onChange={(e) => setMuniFilter(e.target.value)}>
@@ -329,8 +456,17 @@ export function SectoresUrbanoPage() {
                   ))}
                 </select>
               </label>
-            </div>
-          )}
+            )}
+
+            <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+              <span>Agrupar por:</span>
+              <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+                <option value="">Ninguno</option>
+                {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
+                <option value="centroPoblado">Centro Poblado</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div className="admin-table-meta">
@@ -351,74 +487,42 @@ export function SectoresUrbanoPage() {
                     onChange={handleSelectAll}
                   />
                 </th>
-                <th>Centro poblado</th>
-                <th>Zona</th>
-                <th>Manzana</th>
-                <th>Sector</th>
-                {user?.rol === "ADMIN_GENERAL" && <th>Municipalidad</th>}
+                <th onClick={() => handleSort("centroPoblado")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Centro poblado{getSortIcon("centroPoblado")}
+                </th>
+                <th onClick={() => handleSort("zona")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Zona{getSortIcon("zona")}
+                </th>
+                <th onClick={() => handleSort("manzana")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Manzana{getSortIcon("manzana")}
+                </th>
+                <th onClick={() => handleSort("nombreSector")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Sector{getSortIcon("nombreSector")}
+                </th>
+                {user?.rol === "ADMIN_GENERAL" && (
+                  <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Municipalidad{getSortIcon("municipalidad")}
+                  </th>
+                )}
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((r) => (
-                <tr key={r.id} style={{ opacity: r.activo ? 1 : 0.6 }}>
-                  <td style={{ textAlign: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(r.id)}
-                      onChange={() => handleSelectRow(r.id)}
-                    />
-                  </td>
-                  <td>{r.centroPoblado?.nombre || "-"}</td>
-                  <td>{r.urbano?.zona}</td>
-                  <td>{r.urbano?.manzana}</td>
-                  <td>{r.nombreSector}</td>
-                  {user?.rol === "ADMIN_GENERAL" && (
-                    <td>{munisMap[r.municipalidadId] || "Cargando..."}</td>
-                  )}
-                  <td>
-                    <span className={`status-pill ${r.activo ? "is-active" : "is-muted"}`}>
-                      {r.activo ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        className="admin-button is-ghost"
-                        style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                        onClick={() => handleEditClick(r)}
-                        type="button"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="admin-button is-ghost"
-                        style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                        onClick={() => handleToggleActivo(r)}
-                        type="button"
-                      >
-                        {r.activo ? "Inactivar" : "Activar"}
-                      </button>
-                      <button
-                        className="admin-button is-ghost"
-                        style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                        onClick={() => {
-                          setConfirmConfig({
-                            isOpen: true,
-                            title: "Archivar Sector Urbano",
-                            message: `¿Seguro que deseas archivar el sector urbano "${r.nombreSector}"? Esta acción lo retirará del listado operativo.`,
-                            onConfirm: () => handleArchivar(r),
-                          });
-                        }}
-                        type="button"
-                      >
-                        Archivar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {groupBy ? (
+                groupedRecords && Object.keys(groupedRecords).map((groupName) => (
+                  <Fragment key={groupName}>
+                    <tr style={{ background: "#f8f9fa" }}>
+                      <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
+                        📁 {groupName} ({groupedRecords[groupName].length})
+                      </td>
+                    </tr>
+                    {groupedRecords[groupName].map((r) => renderRow(r))}
+                  </Fragment>
+                ))
+              ) : (
+                sortedRecords.map((r) => renderRow(r))
+              )}
               {!isLoading && filteredRecords.length === 0 ? (
                 <tr>
                   <td className="admin-empty-cell" colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7}>
@@ -459,6 +563,11 @@ export function SectoresUrbanoPage() {
                       </option>
                     ))}
                   </select>
+                  {!form.municipalidadId && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      La municipalidad es obligatoria.
+                    </span>
+                  )}
                 </label>
               ) : null}
 
@@ -477,16 +586,23 @@ export function SectoresUrbanoPage() {
                 <input type="text" disabled value={form.distrito} placeholder="Distrito" />
               </label>
 
-              <AutocompleteSearch
-                label="Centro Poblado"
-                placeholder="Seleccione..."
-                value={form.centroPobladoId}
-                displayValue={cpSelectedName}
-                options={cpOptions}
-                onChange={(id) => setForm((curr) => ({ ...curr, centroPobladoId: id }))}
-                onSearchMore={handleSearchCpMore}
-                required
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <AutocompleteSearch
+                  label="Centro Poblado"
+                  placeholder="Seleccione..."
+                  value={form.centroPobladoId}
+                  displayValue={cpSelectedName}
+                  options={cpOptions}
+                  onChange={(id) => setForm((curr) => ({ ...curr, centroPobladoId: id }))}
+                  onSearchMore={handleSearchCpMore}
+                  required
+                />
+                {!form.centroPobladoId && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    El Centro Poblado es obligatorio.
+                  </span>
+                )}
+              </div>
 
               <label className="field">
                 Nombre del Sector *
@@ -497,6 +613,11 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, nombreSector: e.target.value }))}
                   placeholder="Ej. Raymondi- I"
                 />
+                {!form.nombreSector.trim() && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    El nombre del sector es obligatorio.
+                  </span>
+                )}
               </label>
 
               <label className="field">
@@ -509,6 +630,11 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, zona: e.target.value }))}
                   placeholder="Máx 3 carac. Ej. 7"
                 />
+                {!form.zona.trim() && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    La zona es obligatoria.
+                  </span>
+                )}
               </label>
 
               <label className="field">
@@ -521,6 +647,11 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, manzana: e.target.value }))}
                   placeholder="Máx 10 carac. Ej. 26"
                 />
+                {!form.manzana.trim() && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    La manzana es obligatoria.
+                  </span>
+                )}
               </label>
             </div>
 
@@ -528,7 +659,11 @@ export function SectoresUrbanoPage() {
               <button className="admin-button is-ghost" onClick={() => setIsFormOpen(false)} type="button">
                 Cancelar
               </button>
-              <button className="admin-button is-primary" disabled={isSaving} type="submit">
+              <button
+                className="admin-button is-primary"
+                disabled={isSaving || (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) || !form.centroPobladoId || !form.nombreSector.trim() || !form.zona.trim() || !form.manzana.trim()}
+                type="submit"
+              >
                 {isSaving ? "Guardando..." : "Guardar"}
               </button>
             </div>
