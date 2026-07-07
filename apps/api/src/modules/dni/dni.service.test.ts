@@ -55,4 +55,18 @@ describe("DniService", () => {
       message: "DNI no encontrado",
     });
   });
+
+  it("throws 502 error if API response is not ok", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+    } as any);
+
+    const service = new DniService();
+    await expect(service.consultarDni("70135060")).rejects.toMatchObject({
+      statusCode: 502,
+      message: "Error al consultar el servicio externo de DNI (código: 401)",
+    });
+  });
 });

@@ -25,7 +25,7 @@ export class DniService {
       });
 
       if (!response.ok) {
-        throw new HttpError(response.status, "Error al consultar el servicio externo de DNI");
+        throw new HttpError(502, `Error al consultar el servicio externo de DNI (código: ${response.status})`);
       }
 
       const data = (await response.json()) as any;
