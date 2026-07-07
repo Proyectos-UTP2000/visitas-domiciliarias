@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { LuSearch } from "react-icons/lu";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { LuSearch, LuSettings } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -47,6 +47,9 @@ export function CentrosPobladosPage() {
     onConfirm: () => {},
   });
 
+  const [groupBy, setGroupBy] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
   const filteredRecords = useMemo(() => {
     return filterCentrosPoblados(records, query, muniFilter);
   }, [records, query, muniFilter]);
@@ -58,6 +61,70 @@ export function CentrosPobladosPage() {
     });
     return map;
   }, [municipalidades]);
+
+  const sortedRecords = useMemo(() => {
+    if (!sortConfig) return filteredRecords;
+    return [...filteredRecords].sort((a: any, b: any) => {
+      let aVal: any = "";
+      let bVal: any = "";
+
+      if (sortConfig.key === "municipalidad") {
+        aVal = munisMap[a.municipalidadId] || "";
+        bVal = munisMap[b.municipalidadId] || "";
+      } else if (sortConfig.key === "poblacion") {
+        aVal = a.poblacion ?? -1;
+        bVal = b.poblacion ?? -1;
+      } else if (sortConfig.key === "latitud") {
+        aVal = a.latitud ?? -999;
+        bVal = b.latitud ?? -999;
+      } else {
+        aVal = a[sortConfig.key] || "";
+        bVal = b[sortConfig.key] || "";
+      }
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.direction === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      const aStr = String(aVal).toLowerCase().trim();
+      const bStr = String(bVal).toLowerCase().trim();
+
+      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRecords, sortConfig, munisMap]);
+
+  const groupedRecords = useMemo(() => {
+    if (!groupBy) return null;
+    const groups: Record<string, CentroPobladoRecord[]> = {};
+    sortedRecords.forEach((r) => {
+      let groupKey = "";
+      if (groupBy === "municipalidad") {
+        groupKey = munisMap[r.municipalidadId] || "Sin Municipalidad";
+      } else if (groupBy === "tipo") {
+        groupKey = r.tipo === "URBANO" ? "Urbano" : "Rural";
+      }
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(r);
+    });
+    return groups;
+  }, [sortedRecords, groupBy, munisMap]);
+
+  function handleSort(key: string) {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  }
+
+  function getSortIcon(key: string) {
+    if (!sortConfig || sortConfig.key !== key) return " ↕";
+    return sortConfig.direction === "asc" ? " ▲" : " ▼";
+  }
 
   useEffect(() => {
     const session = getStoredSession();
@@ -174,6 +241,118 @@ export function CentrosPobladosPage() {
     }
   }
 
+  function renderRow(r: CentroPobladoRecord) {
+    return (
+      <tr key={r.id}>
+        {user?.rol === "ADMIN_GENERAL" && (
+          <td>{munisMap[r.municipalidadId] || "Cargando..."}</td>
+        )}
+        <td style={{ fontFamily: "monospace", fontWeight: "bold" }}>{r.codigo || "-"}</td>
+        <td>{r.nombre}</td>
+        <td>
+          <span className={`admin-badge ${r.tipo === "URBANO" ? "is-success" : "is-warning"}`}>
+            {r.tipo}
+          </span>
+        </td>
+        <td>{r.poblacion !== null ? r.poblacion.toLocaleString() : "-"}</td>
+        <td>
+          {r.latitud !== null && r.longitud !== null
+            ? `${r.latitud.toFixed(5)}, ${r.longitud.toFixed(5)}`
+            : "-"}
+        </td>
+        <td>
+          <span
+            className={`status-pill ${r.activo ? "is-active" : "is-muted"}`}
+            onClick={() => handleToggleActivo(r)}
+            style={{ cursor: "pointer" }}
+            title={`Haga clic para ${r.activo ? "desactivar" : "activar"}`}
+          >
+            {r.activo ? "Activo" : "Inactivo"}
+          </span>
+        </td>
+        <td>
+          <div style={{ display: "flex", justifyContent: "center", position: "relative" }}>
+            <button
+              className="admin-button is-ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuId(activeMenuId === r.id ? null : r.id);
+              }}
+              style={{ padding: "0.25rem", height: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}
+              type="button"
+            >
+              <LuSettings size={18} />
+            </button>
+
+            {activeMenuId === r.id && (
+              <div
+                className="admin-context-menu"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  background: "white",
+                  border: "1px solid var(--border)",
+                  borderRadius: "0.5rem",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  zIndex: 1000,
+                  minWidth: "120px",
+                  padding: "0.25rem 0",
+                }}
+              >
+                <button
+                  onClick={() => handleEditClick(r)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.6rem 1rem",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#333",
+                    fontSize: "0.9rem",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5eeff")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                  type="button"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirmConfig({
+                      isOpen: true,
+                      title: "Archivar Centro Poblado",
+                      message: `¿Seguro que deseas archivar el centro poblado "${r.nombre}"? Esta acción lo retirará del listado operativo.`,
+                      onConfirm: () => handleArchivar(r),
+                    });
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "0.6rem 1rem",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    color: "#c81e1e",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#fde8e8")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                  type="button"
+                >
+                  Archivar
+                </button>
+              </div>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <>
       <div className="admin-page-heading">
@@ -215,12 +394,20 @@ export function CentrosPobladosPage() {
             />
           </div>
 
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginRight: "1rem" }}>
             {user?.rol === "ADMIN_GENERAL" ? (
               <select
-                className="admin-select"
                 onChange={(e) => setMuniFilter(e.target.value)}
-                style={{ width: "220px", height: "38px" }}
+                style={{
+                  width: "220px",
+                  height: "38px",
+                  background: "white",
+                  color: "#333",
+                  border: "1px solid #ccc",
+                  borderRadius: "0.25rem",
+                  padding: "0 0.5rem",
+                  cursor: "pointer",
+                }}
                 value={muniFilter}
               >
                 <option value="">Todas las Municipalidades</option>
@@ -231,6 +418,27 @@ export function CentrosPobladosPage() {
                 ))}
               </select>
             ) : null}
+
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>Agrupar por:</span>
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+                style={{
+                  height: "38px",
+                  background: "white",
+                  color: "#333",
+                  border: "1px solid #ccc",
+                  borderRadius: "0.25rem",
+                  padding: "0 0.5rem",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Ninguno</option>
+                {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
+                <option value="tipo">Tipo de CC.PP.</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -238,118 +446,45 @@ export function CentrosPobladosPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                {user?.rol === "ADMIN_GENERAL" && <th>Municipalidad</th>}
-                <th>Código / Ubigeo</th>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>Población Est.</th>
-                <th>Ubicación (Lat/Lng)</th>
+                {user?.rol === "ADMIN_GENERAL" && (
+                  <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Municipalidad{getSortIcon("municipalidad")}
+                  </th>
+                )}
+                <th onClick={() => handleSort("codigo")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Código / Ubigeo{getSortIcon("codigo")}
+                </th>
+                <th onClick={() => handleSort("nombre")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Nombre{getSortIcon("nombre")}
+                </th>
+                <th onClick={() => handleSort("tipo")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Tipo{getSortIcon("tipo")}
+                </th>
+                <th onClick={() => handleSort("poblacion")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Población Est.{getSortIcon("poblacion")}
+                </th>
+                <th onClick={() => handleSort("latitud")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Ubicación (Lat/Lng){getSortIcon("latitud")}
+                </th>
                 <th>Estado</th>
                 <th style={{ width: "80px", textAlign: "center" }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((r) => (
-                <tr key={r.id}>
-                  {user?.rol === "ADMIN_GENERAL" && (
-                    <td>{munisMap[r.municipalidadId] || "Cargando..."}</td>
-                  )}
-                  <td style={{ fontFamily: "monospace", fontWeight: "bold" }}>{r.codigo || "-"}</td>
-                  <td>{r.nombre}</td>
-                  <td>
-                    <span className={`admin-badge ${r.tipo === "URBANO" ? "is-success" : "is-warning"}`}>
-                      {r.tipo}
-                    </span>
-                  </td>
-                  <td>{r.poblacion !== null ? r.poblacion.toLocaleString() : "-"}</td>
-                  <td>
-                    {r.latitud !== null && r.longitud !== null
-                      ? `${r.latitud.toFixed(5)}, ${r.longitud.toFixed(5)}`
-                      : "-"}
-                  </td>
-                  <td>
-                    <button
-                      className={`admin-status-pill ${r.activo ? "is-active" : "is-inactive"}`}
-                      onClick={() => handleToggleActivo(r)}
-                      title={`Haga clic para ${r.activo ? "desactivar" : "activar"}`}
-                      type="button"
-                    >
-                      {r.activo ? "Activo" : "Inactivo"}
-                    </button>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", justifyContent: "center", position: "relative" }}>
-                      <button
-                        className="admin-button is-ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId(activeMenuId === r.id ? null : r.id);
-                        }}
-                        style={{ padding: "0.25rem", height: "auto" }}
-                        type="button"
-                      >
-                        ⚙️
-                      </button>
-
-                      {activeMenuId === r.id && (
-                        <div
-                          className="admin-context-menu"
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: "100%",
-                            background: "white",
-                            border: "1px solid #ccc",
-                            borderRadius: "0.25rem",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                            zIndex: 10,
-                            minWidth: "120px",
-                          }}
-                        >
-                          <button
-                            onClick={() => handleEditClick(r)}
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              padding: "0.5rem 0.75rem",
-                              textAlign: "left",
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                            type="button"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => {
-                              setConfirmConfig({
-                                isOpen: true,
-                                title: "Archivar Centro Poblado",
-                                message: `¿Seguro que deseas archivar el centro poblado "${r.nombre}"? Esta acción lo retirará del listado operativo.`,
-                                onConfirm: () => handleArchivar(r),
-                              });
-                            }}
-                            style={{
-                              display: "block",
-                              width: "100%",
-                              padding: "0.5rem 0.75rem",
-                              textAlign: "left",
-                              background: "none",
-                              border: "none",
-                              color: "red",
-                              cursor: "pointer",
-                            }}
-                            type="button"
-                          >
-                            Archivar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {groupBy ? (
+                groupedRecords && Object.keys(groupedRecords).map((groupName) => (
+                  <Fragment key={groupName}>
+                    <tr style={{ background: "#f8f9fa" }}>
+                      <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
+                        📁 {groupName} ({groupedRecords[groupName].length})
+                      </td>
+                    </tr>
+                    {groupedRecords[groupName].map((r) => renderRow(r))}
+                  </Fragment>
+                ))
+              ) : (
+                sortedRecords.map((r) => renderRow(r))
+              )}
               {!isLoading && filteredRecords.length === 0 ? (
                 <tr>
                   <td className="admin-empty-cell" colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7}>
@@ -390,6 +525,11 @@ export function CentrosPobladosPage() {
                       </option>
                     ))}
                   </select>
+                  {!form.municipalidadId && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      La municipalidad es obligatoria.
+                    </span>
+                  )}
                 </label>
               ) : null}
 
@@ -402,6 +542,11 @@ export function CentrosPobladosPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, nombre: e.target.value }))}
                   placeholder="Ej. CASDAS"
                 />
+                {!form.nombre.trim() && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    El nombre del Centro Poblado es obligatorio.
+                  </span>
+                )}
               </label>
 
               <label className="field">
@@ -457,7 +602,11 @@ export function CentrosPobladosPage() {
               <button className="admin-button is-ghost" onClick={() => setIsFormOpen(false)} type="button">
                 Cancelar
               </button>
-              <button className="admin-button is-primary" disabled={isSaving} type="submit">
+              <button
+                className="admin-button is-primary"
+                disabled={isSaving || (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) || !form.nombre.trim()}
+                type="submit"
+              >
                 {isSaving ? "Guardando..." : "Guardar"}
               </button>
             </div>
