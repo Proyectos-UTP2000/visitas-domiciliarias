@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { Fragment, useEffect, useMemo, useState, useRef } from "react";
 import { LuSearch, LuSettings, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
@@ -131,9 +131,22 @@ export function ActoresSocialesPage() {
     onConfirm: () => {},
   });
 
+  const [groupBy, setGroupBy] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
   const filteredActores = useMemo(() => {
     return filterActores(actores, query, muniFilter, estadoFilter);
   }, [actores, query, muniFilter, estadoFilter]);
+
+  const establishmentsMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    grupos.forEach((g) => {
+      g.establecimientos?.forEach((e) => {
+        map[e.id] = e.nombre;
+      });
+    });
+    return map;
+  }, [grupos]);
 
   // Map municipalidades for fast ID -> Name lookups
   const munisMap = useMemo(() => {
@@ -167,6 +180,71 @@ export function ActoresSocialesPage() {
     });
     return map;
   }, [entidades]);
+
+  const sortedActores = useMemo(() => {
+    if (!sortConfig) return filteredActores;
+    return [...filteredActores].sort((a: any, b: any) => {
+      let aVal = "";
+      let bVal = "";
+
+      if (sortConfig.key === "municipalidad") {
+        aVal = munisMap[a.municipalidadId] || "";
+        bVal = munisMap[b.municipalidadId] || "";
+      } else if (sortConfig.key === "nombreCompleto") {
+        aVal = `${a.apellidoPaterno} ${a.apellidoMaterno} ${a.nombres}`;
+        bVal = `${b.apellidoPaterno} ${b.apellidoMaterno} ${b.nombres}`;
+      } else if (sortConfig.key === "tipoActor") {
+        aVal = tiposMap[a.tipoActorSocialId] || "";
+        bVal = tiposMap[b.tipoActorSocialId] || "";
+      } else if (sortConfig.key === "establecimiento") {
+        aVal = (a.grupoEstablecimientoId && establishmentsMap[a.grupoEstablecimientoId]) || "";
+        bVal = (b.grupoEstablecimientoId && establishmentsMap[b.grupoEstablecimientoId]) || "";
+      } else {
+        aVal = a[sortConfig.key] || "";
+        bVal = b[sortConfig.key] || "";
+      }
+
+      const aStr = String(aVal).toLowerCase().trim();
+      const bStr = String(bVal).toLowerCase().trim();
+
+      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredActores, sortConfig, munisMap, tiposMap, establishmentsMap]);
+
+  const groupedActores = useMemo(() => {
+    if (!groupBy) return null;
+    const groups: Record<string, ActorSocialRecord[]> = {};
+    sortedActores.forEach((r) => {
+      let groupKey = "";
+      if (groupBy === "municipalidad") {
+        groupKey = munisMap[r.municipalidadId] || "Sin Municipalidad";
+      } else if (groupBy === "tipoActor") {
+        groupKey = tiposMap[r.tipoActorSocialId] || "Sin Tipo";
+      } else if (groupBy === "establecimiento") {
+        groupKey = (r.grupoEstablecimientoId && establishmentsMap[r.grupoEstablecimientoId]) || "Sin Establecimiento";
+      }
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(r);
+    });
+    return groups;
+  }, [sortedActores, groupBy, munisMap, tiposMap, establishmentsMap]);
+
+  function handleSort(key: string) {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  }
+
+  function getSortIcon(key: string) {
+    if (!sortConfig || sortConfig.key !== key) return " ↕";
+    return sortConfig.direction === "asc" ? " ▲" : " ▼";
+  }
 
   // Options lists for Autocomplete
   const municipalidadesOptions = useMemo(() => {
@@ -743,6 +821,32 @@ export function ActoresSocialesPage() {
     setSearchModalConfig((curr) => ({ ...curr, isOpen: false }));
   }
 
+  function renderRow(a: ActorSocialRecord) {
+    return (
+      <tr key={a.id} onClick={() => handleRowClick(a)} style={{ cursor: "pointer", opacity: a.activo ? 1 : 0.6 }}>
+        <td onClick={(e) => e.stopPropagation()}><input type="checkbox" readOnly /></td>
+        <td>
+          {a.grupoEstablecimientoId 
+            ? (grupos.flatMap(g => g.establecimientos || []).find(e => e.id === a.grupoEstablecimientoId)?.nombre || "-")
+            : "-"}
+        </td>
+        <td>{a.dni}</td>
+        <td>{a.apellidos}</td>
+        <td>{a.nombres}</td>
+        <td>{tiposMap[a.tipoActorSocialId] || "Cargando..."}</td>
+        {user?.rol === "ADMIN_GENERAL" && (
+          <td>{munisMap[a.municipalidadId] || "Cargando..."}</td>
+        )}
+        <td>
+          <span className={`status-pill is-active`} style={{
+            backgroundColor: a.estado === "APROBADO" ? "#2e7d32" : a.estado === "VALIDO" ? "#0288d1" : "#e65100",
+            color: "white"
+          }}>{a.estado}</span>
+        </td>
+      </tr>
+    );
+  }
+
   // Render List View
   if (viewMode === "list") {
     return (
@@ -780,10 +884,33 @@ export function ActoresSocialesPage() {
               />
             </div>
 
-            <div className="admin-actions-group" style={{ display: "flex", gap: "0.5rem" }}>
+            <div className="admin-actions-group" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+              <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--muted)", fontWeight: "500" }}>Agrupar por:</span>
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                  style={{
+                    height: "38px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "0.25rem",
+                    padding: "0 0.5rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Ninguno</option>
+                  {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
+                  <option value="tipoActor">Tipo de Actor</option>
+                  <option value="establecimiento">Establecimiento</option>
+                </select>
+              </label>
+
               <button
                 className={`admin-button is-ghost ${showFilters ? "is-active" : ""}`}
                 onClick={() => setShowFilters(!showFilters)}
+                style={{ height: "38px" }}
                 type="button"
               >
                 Filtros {showFilters ? "▲" : "▼"}
@@ -832,40 +959,47 @@ export function ActoresSocialesPage() {
               <thead>
                 <tr>
                   <th style={{ width: "40px" }}><input type="checkbox" readOnly /></th>
-                  <th>Establecimiento Salud</th>
-                  <th>DNI</th>
-                  <th>Apellidos</th>
-                  <th>Nombres</th>
-                  <th>Tipo Actor Social</th>
+                  <th onClick={() => handleSort("establecimiento")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Establecimiento Salud{getSortIcon("establecimiento")}
+                  </th>
+                  <th onClick={() => handleSort("dni")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    DNI{getSortIcon("dni")}
+                  </th>
+                  <th onClick={() => handleSort("apellidos")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Apellidos{getSortIcon("apellidos")}
+                  </th>
+                  <th onClick={() => handleSort("nombres")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Nombres{getSortIcon("nombres")}
+                  </th>
+                  <th onClick={() => handleSort("tipoActor")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Tipo Actor Social{getSortIcon("tipoActor")}
+                  </th>
+                  {user?.rol === "ADMIN_GENERAL" && (
+                    <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
+                      Municipalidad{getSortIcon("municipalidad")}
+                    </th>
+                  )}
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredActores.map((a) => {
-                  return (
-                    <tr key={a.id} onClick={() => handleRowClick(a)} style={{ cursor: "pointer", opacity: a.activo ? 1 : 0.6 }}>
-                      <td onClick={(e) => e.stopPropagation()}><input type="checkbox" readOnly /></td>
-                      <td>
-                        {a.grupoEstablecimientoId 
-                          ? (grupos.flatMap(g => g.establecimientos || []).find(e => e.id === a.grupoEstablecimientoId)?.nombre || "-")
-                          : "-"}
-                      </td>
-                      <td>{a.dni}</td>
-                      <td>{a.apellidos}</td>
-                      <td>{a.nombres}</td>
-                      <td>{tiposMap[a.tipoActorSocialId] || "Cargando..."}</td>
-                      <td>
-                        <span className={`status-pill is-active`} style={{
-                          backgroundColor: a.estado === "APROBADO" ? "#2e7d32" : a.estado === "VALIDO" ? "#0288d1" : "#e65100",
-                          color: "white"
-                        }}>{a.estado}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {groupBy ? (
+                  groupedActores && Object.keys(groupedActores).map((groupName) => (
+                    <Fragment key={groupName}>
+                      <tr style={{ background: "#f8f9fa" }}>
+                        <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
+                          📁 {groupName} ({groupedActores[groupName].length})
+                        </td>
+                      </tr>
+                      {groupedActores[groupName].map((a) => renderRow(a))}
+                    </Fragment>
+                  ))
+                ) : (
+                  sortedActores.map((a) => renderRow(a))
+                )}
                 {!isLoading && filteredActores.length === 0 ? (
                   <tr>
-                    <td className="admin-empty-cell" colSpan={7}>
+                    <td className="admin-empty-cell" colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7}>
                       No se encontraron actores sociales.
                     </td>
                   </tr>
@@ -939,7 +1073,17 @@ export function ActoresSocialesPage() {
             className="admin-button is-primary"
             onClick={viewMode === "create" ? handleCreateSubmit : handleUpdateSubmit}
             style={{ marginLeft: "1rem" }}
-            disabled={isSaving}
+            disabled={
+              isSaving ||
+              !form.dni.trim() || form.dni.length !== 8 || 
+              !form.nombres.trim() || 
+              !form.apellidos.trim() || 
+              !form.celular.trim() || form.celular.length !== 9 || 
+              !form.tipoActorSocialId || 
+              !form.grupoTrabajoId || 
+              !form.grupoEstablecimientoId ||
+              (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId)
+            }
           >
             {isSaving ? "Guardando..." : "Guardar"}
           </button>
@@ -1028,31 +1172,43 @@ export function ActoresSocialesPage() {
                       </option>
                     ))}
                   </select>
+                  {!form.tipoActorSocialId && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      El tipo de actor social es obligatorio.
+                    </span>
+                  )}
                 </label>
 
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
-                  <label className="field" style={{ flex: 1, margin: 0 }}>
-                    DNI *
-                    <input
-                      type="text"
-                      maxLength={8}
-                      required
-                      value={form.dni}
-                      onChange={(e) => setForm((curr) => ({ ...curr, dni: e.target.value }))}
-                      placeholder="DNI de 8 dígitos"
-                      disabled={viewMode === "detail"}
-                    />
-                  </label>
-                  {viewMode === "create" && (
-                    <button
-                      className="admin-button is-primary"
-                      type="button"
-                      style={{ height: "42px" }}
-                      disabled={isSearchingDni}
-                      onClick={handleDniLookup}
-                    >
-                      {isSearchingDni ? "..." : "Consultar"}
-                    </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+                    <label className="field" style={{ flex: 1, margin: 0 }}>
+                      DNI *
+                      <input
+                        type="text"
+                        maxLength={8}
+                        required
+                        value={form.dni}
+                        onChange={(e) => setForm((curr) => ({ ...curr, dni: e.target.value }))}
+                        placeholder="DNI de 8 dígitos"
+                        disabled={viewMode === "detail"}
+                      />
+                    </label>
+                    {viewMode === "create" && (
+                      <button
+                        className="admin-button is-primary"
+                        type="button"
+                        style={{ height: "42px" }}
+                        disabled={isSearchingDni}
+                        onClick={handleDniLookup}
+                      >
+                        {isSearchingDni ? "..." : "Consultar"}
+                      </button>
+                    )}
+                  </div>
+                  {(!form.dni.trim() || form.dni.length !== 8) && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      DNI debe tener exactamente 8 dígitos.
+                    </span>
                   )}
                 </div>
 
@@ -1065,6 +1221,11 @@ export function ActoresSocialesPage() {
                     value={form.apellidos}
                     placeholder="Se autocompleta con DNI"
                   />
+                  {!form.apellidos.trim() && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      Los apellidos son obligatorios (consulte el DNI).
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1076,6 +1237,11 @@ export function ActoresSocialesPage() {
                     value={form.nombres}
                     placeholder="Se autocompleta con DNI"
                   />
+                  {!form.nombres.trim() && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      Los nombres son obligatorios (consulte el DNI).
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1121,6 +1287,11 @@ export function ActoresSocialesPage() {
                     onChange={(e) => setForm((curr) => ({ ...curr, celular: e.target.value }))}
                     placeholder="Ej. 987654321"
                   />
+                  {(!form.celular.trim() || form.celular.length !== 9) && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      Celular debe tener exactamente 9 dígitos.
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
