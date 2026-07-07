@@ -140,6 +140,13 @@ export function GrupoDetailPage() {
     setError(null);
     setMessage(null);
 
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (editForm.fechaLimite < todayStr) {
+      setError("La fecha límite debe ser una fecha futura (a partir de hoy).");
+      setIsSaving(false);
+      return;
+    }
+
     if (!/^\d{8}$/.test(editForm.dniRepresentante)) {
       setError("El DNI del representante debe tener exactamente 8 dígitos.");
       setIsSaving(false);
@@ -546,7 +553,7 @@ export function GrupoDetailPage() {
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem" }}>
                   <h4>Lista de Establecimientos</h4>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
                     <button
                       className="admin-button is-primary"
                       onClick={() => setIsEstModalOpen(true)}
@@ -599,7 +606,7 @@ export function GrupoDetailPage() {
                       value={query}
                     />
                   </label>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
                     <button
                       className="admin-button is-primary"
                       onClick={() => setIsMibModalOpen(true)}
@@ -655,7 +662,7 @@ export function GrupoDetailPage() {
                           </td>
                           <td>
                             <div className="admin-row-actions">
-                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") ? (
+                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") ? (
                                 <>
                                   <button
                                     className="admin-icon-button"
@@ -715,7 +722,7 @@ export function GrupoDetailPage() {
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
                   <h4>Otros Documentos</h4>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                       <input
                         type="file"
@@ -771,7 +778,7 @@ export function GrupoDetailPage() {
                               >
                                 Descargar
                               </button>
-                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
                                 <button
                                   className="admin-icon-button"
                                   style={{ color: "var(--color-danger, #d32f2f)" }}
@@ -852,6 +859,124 @@ export function GrupoDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      ) : null}
+
+      {/* Modal Editar Datos Generales del Grupo */}
+      {isEditGrupoOpen ? (
+        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
+          <form className="admin-modal" onSubmit={handleEditGrupoSubmit}>
+            <div className="admin-modal-header">
+              <div>
+                <h2>Editar Datos Generales</h2>
+                <p>Modifica la información básica del grupo de trabajo.</p>
+              </div>
+              <button
+                className="admin-modal-close"
+                onClick={() => setIsEditGrupoOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="admin-form-grid">
+              <label className="field admin-form-wide">
+                Nombre del Grupo
+                <input
+                  maxLength={150}
+                  onChange={(e) =>
+                    setEditForm((curr) => ({ ...curr, nombreGrupo: e.target.value }))
+                  }
+                  required
+                  value={editForm.nombreGrupo}
+                />
+              </label>
+              <label className="field">
+                Periodo (Año)
+                <input
+                  max={32767}
+                  min={2000}
+                  onChange={(e) =>
+                    setEditForm((curr) => ({ ...curr, periodoYear: e.target.value }))
+                  }
+                  required
+                  type="number"
+                  value={editForm.periodoYear}
+                />
+              </label>
+              <label className="field">
+                Fecha Límite
+                <input
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) =>
+                    setEditForm((curr) => ({ ...curr, fechaLimite: e.target.value }))
+                  }
+                  required
+                  type="date"
+                  value={editForm.fechaLimite}
+                />
+              </label>
+              <div className="field admin-form-wide">
+                DNI Representante
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                  <input
+                    maxLength={8}
+                    onChange={(e) =>
+                      setEditForm((curr) => ({ ...curr, dniRepresentante: e.target.value }))
+                    }
+                    required
+                    style={{ flex: 1, marginTop: 0 }}
+                    value={editForm.dniRepresentante}
+                  />
+                  <button
+                    className="admin-button is-secondary"
+                    disabled={isSearchingDni}
+                    onClick={handleEditDniLookup}
+                    style={{ padding: "0 1rem", height: "38px", minHeight: "38px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    type="button"
+                  >
+                    {isSearchingDni ? "..." : "Consultar"}
+                  </button>
+                </div>
+              </div>
+              <label className="field admin-form-wide">
+                Nombre Representante
+                <input
+                  maxLength={150}
+                  onChange={(e) =>
+                    setEditForm((curr) => ({ ...curr, nombreRepresentante: e.target.value }))
+                  }
+                  required
+                  value={editForm.nombreRepresentante}
+                />
+              </label>
+              <label className="field admin-form-wide">
+                Apellidos Representante
+                <input
+                  maxLength={200}
+                  onChange={(e) =>
+                    setEditForm((curr) => ({ ...curr, apellidosRepresentante: e.target.value }))
+                  }
+                  required
+                  value={editForm.apellidosRepresentante}
+                />
+              </label>
+            </div>
+
+            <div className="admin-form-actions">
+              <button
+                className="admin-button is-ghost"
+                onClick={() => setIsEditGrupoOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button className="admin-button is-primary" disabled={isSaving} type="submit">
+                {isSaving ? "Guardando..." : "Guardar Cambios"}
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
 

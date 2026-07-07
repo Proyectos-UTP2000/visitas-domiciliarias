@@ -231,8 +231,8 @@ export class GruposTrabajoService {
   }
 
   private ensureGrupoEditable(estado: string): void {
-    if (estado !== "BORRADOR" && estado !== "OBSERVADO") {
-      throw new HttpError(400, "Solo se pueden modificar grupos de trabajo en estado borrador u observado");
+    if (estado !== "BORRADOR" && estado !== "OBSERVADO" && estado !== "VALIDADO") {
+      throw new HttpError(400, "Solo se pueden modificar grupos de trabajo en estado borrador, observado o validado");
     }
   }
 

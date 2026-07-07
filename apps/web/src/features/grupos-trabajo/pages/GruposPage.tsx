@@ -106,6 +106,13 @@ export function GruposPage() {
     setError(null);
     setMessage(null);
 
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (form.fechaLimite < todayStr) {
+      setError("La fecha límite debe ser una fecha futura (a partir de hoy).");
+      setIsSaving(false);
+      return;
+    }
+
     if (!/^\d{8}$/.test(form.dniRepresentante)) {
       setError("El DNI del representante debe tener exactamente 8 dígitos.");
       setIsSaving(false);
@@ -327,6 +334,7 @@ export function GruposPage() {
                 <label className="field">
                   Fecha Límite
                   <input
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) =>
                       setForm((curr) => ({ ...curr, fechaLimite: e.target.value }))
                     }
@@ -335,7 +343,7 @@ export function GruposPage() {
                     value={form.fechaLimite}
                   />
                 </label>
-                <div className="field">
+                <div className="field admin-form-wide">
                   DNI Representante
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
                     <input
@@ -358,7 +366,7 @@ export function GruposPage() {
                     </button>
                   </div>
                 </div>
-                <label className="field">
+                <label className="field admin-form-wide">
                   Nombre Representante
                   <input
                     maxLength={150}
