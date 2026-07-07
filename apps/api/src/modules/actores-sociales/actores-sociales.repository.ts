@@ -17,6 +17,11 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
         deletedAt: null,
         ...(municipalidadId ? { municipalidadId } : {}),
       },
+      include: {
+        sectores: true,
+        sectoresACorregir: true,
+        centroPoblado: true,
+      },
       orderBy: [{ apellidos: "asc" }, { nombres: "asc" }],
     }) as unknown as Promise<ActorSocialRecord[]>;
   }
@@ -24,12 +29,20 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
   async findById(id: string): Promise<ActorSocialRecord | null> {
     return this.prisma.actorSocial.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        sectores: true,
+        sectoresACorregir: true,
+        centroPoblado: true,
+      },
     }) as unknown as Promise<ActorSocialRecord | null>;
   }
 
   async findByDni(municipalidadId: string, dni: string): Promise<ActorSocialRecord | null> {
     return this.prisma.actorSocial.findFirst({
       where: { municipalidadId, dni, deletedAt: null },
+      include: {
+        centroPoblado: true,
+      },
     }) as unknown as Promise<ActorSocialRecord | null>;
   }
 
@@ -49,7 +62,7 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
       archivado: boolean;
     }
   ): Promise<ActorSocialRecord> {
-    const { username, passwordHash, ...actorData } = data;
+    const { username, passwordHash, sectoresIds, sectoresACorregirIds, ...actorData } = data;
 
     return this.prisma.$transaction(async (tx) => {
       const usuario = await tx.usuario.create({
@@ -67,6 +80,15 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
           ...actorData,
           fechaNac: new Date(actorData.fechaNac),
           usuarioId: usuario.id,
+          sectores: sectoresIds ? { connect: sectoresIds.map((id) => ({ id })) } : undefined,
+          sectoresACorregir: sectoresACorregirIds
+            ? { connect: sectoresACorregirIds.map((id) => ({ id })) }
+            : undefined,
+        },
+        include: {
+          sectores: true,
+          sectoresACorregir: true,
+          centroPoblado: true,
         },
       });
 
@@ -75,12 +97,23 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
   }
 
   async update(id: string, data: ActorSocialUpdateInput): Promise<ActorSocialRecord> {
+    const { sectoresIds, sectoresACorregirIds, ...actorData } = data;
     return this.prisma.actorSocial.update({
       where: { id },
       data: {
-        ...data,
-        entidadId: data.entidadId ?? null,
-        centroPoblado: data.centroPoblado ?? null,
+        ...actorData,
+        entidadId: actorData.entidadId ?? null,
+        centroPobladoId: actorData.centroPobladoId ?? null,
+        grupoEstablecimientoId: actorData.grupoEstablecimientoId ?? null,
+        sectores: sectoresIds ? { set: sectoresIds.map((sid) => ({ id: sid })) } : undefined,
+        sectoresACorregir: sectoresACorregirIds
+          ? { set: sectoresACorregirIds.map((sid) => ({ id: sid })) }
+          : undefined,
+      },
+      include: {
+        sectores: true,
+        sectoresACorregir: true,
+        centroPoblado: true,
       },
     }) as unknown as Promise<ActorSocialRecord>;
   }

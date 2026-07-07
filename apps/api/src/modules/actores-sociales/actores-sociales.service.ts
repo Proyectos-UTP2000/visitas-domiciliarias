@@ -18,6 +18,8 @@ export class ActoresSocialesService {
       findTipoActorById?(id: string): Promise<{ id: string } | null>;
       findGrupoById?(id: string): Promise<{ id: string; municipalidadId: string } | null>;
       findEntidadById?(id: string): Promise<{ id: string } | null>;
+      findEstablecimientoById?(id: string): Promise<{ id: string; grupoTrabajoId: string } | null>;
+      findCentroPobladoById?(id: string): Promise<{ id: string; municipalidadId: string } | null>;
     }
   ) {}
 
@@ -73,6 +75,30 @@ export class ActoresSocialesService {
         );
       }
     }
+    if (input.grupoEstablecimientoId && this.repository.findEstablecimientoById) {
+      const est = await this.repository.findEstablecimientoById(input.grupoEstablecimientoId);
+      if (!est) {
+        throw new HttpError(404, "Establecimiento de salud no encontrado");
+      }
+      if (est.grupoTrabajoId !== input.grupoTrabajoId) {
+        throw new HttpError(
+          400,
+          "El establecimiento de salud no pertenece al grupo de trabajo indicado"
+        );
+      }
+    }
+    if (input.centroPobladoId && this.repository.findCentroPobladoById) {
+      const cp = await this.repository.findCentroPobladoById(input.centroPobladoId);
+      if (!cp) {
+        throw new HttpError(404, "Centro Poblado no encontrado");
+      }
+      if (cp.municipalidadId !== input.municipalidadId) {
+        throw new HttpError(
+          400,
+          "El centro poblado no pertenece a la municipalidad indicada"
+        );
+      }
+    }
     if (input.entidadId && this.repository.findEntidadById) {
       const ent = await this.repository.findEntidadById(input.entidadId);
       if (!ent) throw new HttpError(404, "Entidad no encontrada");
@@ -106,6 +132,31 @@ export class ActoresSocialesService {
         throw new HttpError(
           400,
           "El grupo de trabajo no pertenece a la municipalidad del actor social"
+        );
+      }
+    }
+    if (input.grupoEstablecimientoId && this.repository.findEstablecimientoById) {
+      const est = await this.repository.findEstablecimientoById(input.grupoEstablecimientoId);
+      if (!est) {
+        throw new HttpError(404, "Establecimiento de salud no encontrado");
+      }
+      const targetGrupoId = input.grupoTrabajoId || existing.grupoTrabajoId;
+      if (est.grupoTrabajoId !== targetGrupoId) {
+        throw new HttpError(
+          400,
+          "El establecimiento de salud no pertenece al grupo de trabajo indicado"
+        );
+      }
+    }
+    if (input.centroPobladoId && this.repository.findCentroPobladoById) {
+      const cp = await this.repository.findCentroPobladoById(input.centroPobladoId);
+      if (!cp) {
+        throw new HttpError(404, "Centro Poblado no encontrado");
+      }
+      if (cp.municipalidadId !== existing.municipalidadId) {
+        throw new HttpError(
+          400,
+          "El centro poblado no pertenece a la municipalidad del actor social"
         );
       }
     }

@@ -17,7 +17,7 @@ export const sectorPayloadSchema = z.object({
   departamento: z.string().trim().min(1).max(100),
   provincia: z.string().trim().min(1).max(100),
   distrito: z.string().trim().min(1).max(100),
-  centroPoblado: z.string().trim().min(1).max(100),
+  centroPobladoId: z.string().uuid("Centro Poblado inválido"),
   nombreSector: z.string().trim().min(1).max(100),
   tipoSector: z.enum(["URBANO", "RURAL"]),
   urbano: urbanoSchema.optional(),

@@ -14,20 +14,21 @@ export type SectorRuralInput = {
 export type SectorRecord = {
   id: string;
   municipalidadId: string;
+  centroPobladoId: string;
   codigo: string;
   departamento: string;
   provincia: string;
   distrito: string;
-  centroPoblado: string;
   nombreSector: string;
   tipoSector: TipoSector;
   activo: boolean;
   archivado: boolean;
   urbano?: SectorUrbanoInput | null;
   rural?: SectorRuralInput | null;
+  centroPoblado?: { id: string; nombre: string; tipo: string } | null;
 };
 
-export type SectorPayload = Omit<SectorRecord, "id" | "activo" | "archivado">;
+export type SectorPayload = Omit<SectorRecord, "id" | "activo" | "archivado" | "centroPoblado">;
 
 export type SectorCreateData = SectorPayload & {
   activo: true;

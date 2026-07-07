@@ -5,12 +5,13 @@ export const actorSocialCreateSchema = z.object({
   municipalidadId: z.uuid(),
   tipoActorSocialId: z.uuid(),
   grupoTrabajoId: z.uuid(),
+  grupoEstablecimientoId: z.uuid().nullable().optional(),
   entidadId: z.uuid().nullable().optional(),
+  centroPobladoId: z.uuid().nullable().optional(),
   dni: z.string().trim().regex(/^\d{8}$/, "DNI debe tener exactamente 8 dígitos"),
   nombres: z.string().trim().min(1, "Nombres requeridos").max(150),
   apellidos: z.string().trim().min(1, "Apellidos requeridos").max(150),
   direccion: z.string().trim().min(1, "Dirección requerida").max(200),
-  centroPoblado: z.string().trim().min(1).max(100).nullable().optional(),
   fechaNac: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD)"),
   email: z.string().email("Email inválido").max(150),
   celular: z.string().trim().regex(/^\d{9}$/, "Celular debe tener exactamente 9 dígitos"),
@@ -18,17 +19,23 @@ export const actorSocialCreateSchema = z.object({
   gradoInstruccion: z.string().trim().min(1, "Grado de instrucción requerido").max(100),
   username: z.string().trim().min(3, "Usuario debe tener al menos 3 caracteres").max(80),
   password: passwordStrengthSchema,
+  sectoresIds: z.array(z.uuid()).optional(),
+  sectoresACorregirIds: z.array(z.uuid()).optional(),
 });
 
 export const actorSocialUpdateSchema = z.object({
   tipoActorSocialId: z.uuid(),
   grupoTrabajoId: z.uuid(),
+  grupoEstablecimientoId: z.uuid().nullable().optional(),
   entidadId: z.uuid().nullable().optional(),
+  centroPobladoId: z.uuid().nullable().optional(),
   email: z.string().email("Email inválido").max(150),
   celular: z.string().trim().regex(/^\d{9}$/, "Celular debe tener exactamente 9 dígitos"),
   direccion: z.string().trim().min(1, "Dirección requerida").max(200),
-  centroPoblado: z.string().trim().min(1).max(100).nullable().optional(),
   gradoInstruccion: z.string().trim().min(1, "Grado de instrucción requerido").max(100),
+  inactivadoPermanentemente: z.boolean().optional(),
+  sectoresIds: z.array(z.uuid()).optional(),
+  sectoresACorregirIds: z.array(z.uuid()).optional(),
 });
 
 export const activoPayloadSchema = z.object({
@@ -36,7 +43,7 @@ export const activoPayloadSchema = z.object({
 });
 
 export const estadoPayloadSchema = z.object({
-  estado: z.enum(["BORRADOR", "REGISTRADO", "VALIDO", "CAPACITADO", "APROBADO"]),
+  estado: z.enum(["BORRADOR", "REGISTRADO", "VALIDO", "APROBADO"]),
 });
 
 export const deletePayloadSchema = z.object({

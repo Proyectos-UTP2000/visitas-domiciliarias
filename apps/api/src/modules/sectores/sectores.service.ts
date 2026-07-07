@@ -7,7 +7,11 @@ import type {
 } from "./sectores.types.js";
 
 export class SectoresService {
-  constructor(private readonly repository: SectoresRepository) {}
+  constructor(
+    private readonly repository: SectoresRepository & {
+      findCentroPobladoById?(id: string): Promise<{ id: string } | null>;
+    }
+  ) {}
 
   list(): Promise<SectorRecord[]> {
     return this.repository.list();
@@ -15,6 +19,13 @@ export class SectoresService {
 
   async create(input: SectorPayload): Promise<SectorRecord> {
     this.ensureTipoMatchesDetail(input);
+
+    if (this.repository.findCentroPobladoById) {
+      const cp = await this.repository.findCentroPobladoById(input.centroPobladoId);
+      if (!cp) {
+        throw new HttpError(404, "Centro Poblado no encontrado");
+      }
+    }
 
     const existing = await this.repository.findByMunicipalidadAndCodigo(
       input.municipalidadId,
@@ -40,6 +51,14 @@ export class SectoresService {
   async update(id: string, input: SectorPayload): Promise<SectorRecord> {
     await this.ensureExists(id);
     this.ensureTipoMatchesDetail(input);
+
+    if (this.repository.findCentroPobladoById) {
+      const cp = await this.repository.findCentroPobladoById(input.centroPobladoId);
+      if (!cp) {
+        throw new HttpError(404, "Centro Poblado no encontrado");
+      }
+    }
+
     return this.repository.update(id, input);
   }
 

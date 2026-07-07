@@ -9,6 +9,7 @@ import type {
 const sectorInclude = {
   urbano: true,
   rural: true,
+  centroPoblado: true,
 };
 
 export class PrismaSectoresRepository implements SectoresRepository {
@@ -47,7 +48,7 @@ export class PrismaSectoresRepository implements SectoresRepository {
         departamento: data.departamento,
         provincia: data.provincia,
         distrito: data.distrito,
-        centroPoblado: data.centroPoblado,
+        centroPobladoId: data.centroPobladoId,
         nombreSector: data.nombreSector,
         tipoSector: data.tipoSector,
         activo: data.activo,
@@ -72,7 +73,7 @@ export class PrismaSectoresRepository implements SectoresRepository {
           departamento: data.departamento,
           provincia: data.provincia,
           distrito: data.distrito,
-          centroPoblado: data.centroPoblado,
+          centroPobladoId: data.centroPobladoId,
           nombreSector: data.nombreSector,
           tipoSector: data.tipoSector,
           urbano: data.urbano ? { create: data.urbano } : undefined,

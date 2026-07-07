@@ -32,6 +32,18 @@ export function createDefaultActoresSocialesRouter() {
         select: { id: true },
       });
     },
+    findEstablecimientoById: async (id: string) => {
+      return prisma.grupoEstablecimiento.findFirst({
+        where: { id, activo: true },
+        select: { id: true, grupoTrabajoId: true },
+      });
+    },
+    findCentroPobladoById: async (id: string) => {
+      return prisma.centroPoblado.findFirst({
+        where: { id, archivado: false },
+        select: { id: true, municipalidadId: true },
+      });
+    },
   });
 
   return createActoresSocialesRouter(

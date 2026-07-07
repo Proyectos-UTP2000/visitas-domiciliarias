@@ -2,7 +2,6 @@ export type EstadoActorSocial =
   | "BORRADOR"
   | "REGISTRADO"
   | "VALIDO"
-  | "CAPACITADO"
   | "APROBADO";
 
 export type ActorSocialRecord = {
@@ -11,12 +10,13 @@ export type ActorSocialRecord = {
   municipalidadId: string;
   tipoActorSocialId: string;
   grupoTrabajoId: string;
+  grupoEstablecimientoId: string | null;
   entidadId: string | null;
+  centroPobladoId: string | null;
   dni: string;
   nombres: string;
   apellidos: string;
   direccion: string;
-  centroPoblado: string | null;
   fechaNac: Date;
   email: string;
   celular: string;
@@ -24,23 +24,28 @@ export type ActorSocialRecord = {
   gradoInstruccion: string;
   estado: EstadoActorSocial;
   activo: boolean;
+  inactivadoPermanentemente: boolean;
   archivado: boolean;
   deletedAt: Date | null;
   motivoEliminacion: string | null;
   createdAt: Date;
   updatedAt: Date;
+  sectores?: any[];
+  sectoresACorregir?: any[];
+  centroPoblado?: any;
 };
 
 export type ActorSocialCreateInput = {
   municipalidadId: string;
   tipoActorSocialId: string;
   grupoTrabajoId: string;
+  grupoEstablecimientoId?: string | null;
   entidadId?: string | null;
+  centroPobladoId?: string | null;
   dni: string;
   nombres: string;
   apellidos: string;
   direccion: string;
-  centroPoblado?: string | null;
   fechaNac: string | Date;
   email: string;
   celular: string;
@@ -48,17 +53,23 @@ export type ActorSocialCreateInput = {
   gradoInstruccion: string;
   username: string;
   password: string;
+  sectoresIds?: string[];
+  sectoresACorregirIds?: string[];
 };
 
 export type ActorSocialUpdateInput = {
   tipoActorSocialId: string;
   grupoTrabajoId: string;
+  grupoEstablecimientoId?: string | null;
   entidadId?: string | null;
+  centroPobladoId?: string | null;
   email: string;
   celular: string;
   direccion: string;
-  centroPoblado?: string | null;
   gradoInstruccion: string;
+  inactivadoPermanentemente?: boolean;
+  sectoresIds?: string[];
+  sectoresACorregirIds?: string[];
 };
 
 export type ActoresSocialesRepository = {
