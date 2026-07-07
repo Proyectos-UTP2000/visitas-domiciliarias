@@ -21,6 +21,10 @@ import { TiposActorSocialPage } from "../features/tipos-actor-social/pages/Tipos
 import { CargosMiembroPage } from "../features/cargos-miembro-grupo/pages/CargosMiembroPage";
 import { GruposPage } from "../features/grupos-trabajo/pages/GruposPage";
 import { GrupoDetailPage } from "../features/grupos-trabajo/pages/GrupoDetailPage";
+import { ActoresSocialesPage } from "../features/actores-sociales/pages/ActoresSocialesPage";
+import { SectoresUrbanoPage } from "../features/sectores/pages/SectoresUrbanoPage";
+import { SectoresRuralPage } from "../features/sectores/pages/SectoresRuralPage";
+import { CentrosPobladosPage } from "../features/sectores/pages/CentrosPobladosPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 function SessionExpirationListener() {
@@ -82,10 +86,11 @@ export function AppRouter() {
             <Route element={<CargosMiembroPage />} path="/cargos-miembro-grupo" />
             <Route element={<GruposPage />} path="/grupos-trabajo" />
             <Route element={<GrupoDetailPage />} path="/grupos-trabajo/:id" />
-            <Route element={<ComingSoonPage />} path="/sectores" />
-            <Route element={<ComingSoonPage />} path="/sectores/urbano" />
-            <Route element={<ComingSoonPage />} path="/sectores/rural" />
-            <Route element={<ComingSoonPage />} path="/actores-sociales" />
+            <Route element={<Navigate replace to="/sectores/urbano" />} path="/sectores" />
+            <Route element={<CentrosPobladosPage />} path="/sectores/centro-poblado" />
+            <Route element={<SectoresUrbanoPage />} path="/sectores/urbano" />
+            <Route element={<SectoresRuralPage />} path="/sectores/rural" />
+            <Route element={<ActoresSocialesPage />} path="/actores-sociales" />
             <Route element={<ComingSoonPage />} path="/ninos/visitas" />
             <Route element={<ComingSoonPage />} path="/reportes/actividad" />
             <Route element={<ComingSoonPage />} path="/reportes/operativos" />

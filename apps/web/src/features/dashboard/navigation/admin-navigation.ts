@@ -61,6 +61,12 @@ export const navGroups: NavGroup[] = [
     label: "Sectorización",
     items: [
       {
+        label: "Centro Poblado",
+        description: "Gestión de centros poblados urbanos y rurales.",
+        path: "/sectores/centro-poblado",
+        roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL"],
+      },
+      {
         label: "Sector Urbano",
         description: "Manzanas y sectores urbanos.",
         path: "/sectores/urbano",

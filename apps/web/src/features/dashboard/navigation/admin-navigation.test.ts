@@ -20,7 +20,7 @@ const expectedDocGroups = [
 const expectedDocItemsByGroup = new Map([
   ["Configuración", ["Municipalidades", "Entidad", "Tipo Actor Social", "Cargos de Miembro"]],
   ["Grupo de Trabajo", ["Conformación de Grupo de Trabajo"]],
-  ["Sectorización", ["Sector Urbano", "Sector Rural"]],
+  ["Sectorización", ["Centro Poblado", "Sector Urbano", "Sector Rural"]],
   ["Actores Sociales", ["Registro Actores Sociales"]],
   ["Niños", ["Panel de Visitas"]],
   ["Reportes", ["Reporte Actividad", "Otros reportes operativos"]],

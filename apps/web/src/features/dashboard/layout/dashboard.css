@@ -227,7 +227,7 @@
 .admin-page-heading,
 .admin-content-card,
 .admin-footer {
-    width: min(100% - 3rem, 1320px);
+    width: min(100% - 3rem, 1600px);
     margin-left: auto;
     margin-right: auto;
 }
@@ -401,7 +401,7 @@
     .admin-page-heading,
     .admin-content-card,
     .admin-footer {
-        width: min(100% - 1.5rem, 1320px);
+        width: min(100% - 1.5rem, 1600px);
     }
 
     .admin-page-heading,
