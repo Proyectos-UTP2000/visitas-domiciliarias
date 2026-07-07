@@ -12,9 +12,9 @@ import type {
 
 const BASE_ENDPOINT = "/grupos-trabajo";
 
-export function listGrupos(municipalidadId?: string | null): Promise<GrupoTrabajoRecord[]> {
+export function listGrupos(municipalidadId?: string | null): Promise<GrupoTrabajoRecordWithRelations[]> {
   const url = municipalidadId ? `${BASE_ENDPOINT}?municipalidadId=${municipalidadId}` : BASE_ENDPOINT;
-  return apiRequest<GrupoTrabajoRecord[]>(url);
+  return apiRequest<GrupoTrabajoRecordWithRelations[]>(url);
 }
 
 export function getGrupoById(id: string): Promise<GrupoTrabajoRecordWithRelations> {
@@ -172,4 +172,16 @@ export async function downloadArchivo(archivoId: string, nombreArchivo: string):
   a.click();
   a.remove();
   window.URL.revokeObjectURL(downloadUrl);
+}
+
+export function deleteGrupo(id: string): Promise<{ success: boolean; message: string }> {
+  return apiRequest<{ success: boolean; message: string }>(`${BASE_ENDPOINT}/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function archivarGrupo(id: string): Promise<GrupoTrabajoRecord> {
+  return apiRequest<GrupoTrabajoRecord>(`${BASE_ENDPOINT}/${id}/archivar`, {
+    method: "POST",
+  });
 }

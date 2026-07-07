@@ -14,17 +14,6 @@ export class DniService {
       throw new HttpError(400, "El DNI debe tener exactamente 8 dígitos numéricos");
     }
 
-    const MOCK_DNI_DATABASE: Record<string, { nombres: string; ape_paterno: string; ape_materno: string }> = {
-      "72934888": { nombres: "Roger", ape_paterno: "Vasco", ape_materno: "Velásquez" },
-      "12345678": { nombres: "Juan", ape_paterno: "Pérez", ape_materno: "Quispe" },
-      "87654321": { nombres: "María", ape_paterno: "Gómez", ape_materno: "Rodríguez" },
-      "70135060": { nombres: "Lauro", ape_paterno: "Guspar", ape_materno: "Sánchez" },
-    };
-
-    if (MOCK_DNI_DATABASE[dni]) {
-      return MOCK_DNI_DATABASE[dni];
-    }
-
     try {
       const url = `${this.apiUrl.endsWith("/") ? this.apiUrl : this.apiUrl + "/"}${dni}`;
       const response = await fetch(url, {
@@ -46,18 +35,7 @@ export class DniService {
 
       return data.datos;
     } catch (error: any) {
-      if (error instanceof HttpError && error.statusCode !== 502) {
-        throw error;
-      }
-
-      // In development or test, return a deterministic generated mock instead of failing
-      if (process.env.NODE_ENV !== "production") {
-        return {
-          nombres: `Ciudadano ${dni}`,
-          ape_paterno: `Paterno${dni.substring(0, 4)}`,
-          ape_materno: `Materno${dni.substring(4)}`,
-        };
-      }
+      console.error(`[DniService] Error al consultar DNI ${dni}:`, error);
 
       if (error instanceof HttpError) {
         throw error;

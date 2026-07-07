@@ -302,7 +302,7 @@ export function createGruposTrabajoRouter(
     const authReq = req as AuthenticatedRequest;
     const { rol, municipalidadId } = authReq.auth!;
     try {
-      const grupo = await service.getGrupoById(req.params.grupoId);
+      const grupo = await service.getGrupoById(req.params.grupoId as string);
       if (rol === "ADMIN_MUNICIPAL" && grupo.municipalidadId !== municipalidadId) {
         res.status(403).json({ message: "No tiene permiso para acceder a este grupo de trabajo" });
         return;
@@ -311,7 +311,7 @@ export function createGruposTrabajoRouter(
         res.status(400).json({ message: "No se subió ningún archivo" });
         return;
       }
-      const saved = await service.createArchivo(req.params.grupoId, {
+      const saved = await service.createArchivo(req.params.grupoId as string, {
         nombreArchivo: req.file.originalname,
         rutaArchivo: req.file.filename,
         mimeType: req.file.mimetype,
@@ -363,6 +363,30 @@ export function createGruposTrabajoRouter(
         fs.unlinkSync(filePath);
       }
       res.json(deleted);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/:id", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const userMuniId = rol === "ADMIN_MUNICIPAL" ? municipalidadId : null;
+      await service.deleteGrupo(req.params.id, userMuniId);
+      res.json({ success: true, message: "Grupo de trabajo eliminado correctamente" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/:id/archivar", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const userMuniId = rol === "ADMIN_MUNICIPAL" ? municipalidadId : null;
+      const updated = await service.archivarGrupo(req.params.id, userMuniId);
+      res.json(updated);
     } catch (error) {
       next(error);
     }

@@ -15,6 +15,8 @@ import {
   uploadArchivo,
   deleteArchivo,
   downloadArchivo,
+  deleteGrupo,
+  archivarGrupo,
 } from "../grupos-api";
 import type {
   GrupoEstablecimientoFormState,
@@ -81,6 +83,42 @@ export function GrupoDetailPage() {
   const [statusComment, setStatusComment] = useState("");
   const [isSubmittingEstado, setIsSubmittingEstado] = useState(false);
   const [isSearchingDni, setIsSearchingDni] = useState(false);
+
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  async function handleDeleteGrupo() {
+    if (!id) return;
+    setError(null);
+    setMessage(null);
+    try {
+      await deleteGrupo(id);
+      navigate("/grupos-trabajo");
+    } catch (err: any) {
+      setError(err.message || "Error al eliminar el borrador del grupo de trabajo.");
+    }
+  }
+
+  async function handleArchivarGrupo() {
+    if (!id) return;
+    setError(null);
+    setMessage(null);
+    try {
+      await archivarGrupo(id);
+      navigate("/grupos-trabajo");
+    } catch (err: any) {
+      setError(err.message || "Error al archivar el grupo de trabajo.");
+    }
+  }
 
   async function handleMiembroDniLookup() {
     const dni = mibForm.dni.trim();
@@ -414,21 +452,65 @@ export function GrupoDetailPage() {
             {/* Acciones de Estado */}
             <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--color-border, #ccc)", paddingTop: "1rem" }}>
               {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <button
+                    className="admin-button is-primary"
+                    style={{ width: "100%" }}
+                    onClick={() => {
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: "Registrar Grupo",
+                        message: "¿Seguro que deseas registrar este grupo de trabajo? Se bloqueará la edición y pasará a revisión.",
+                        onConfirm: () => handleTransitionEstado("REGISTRADO"),
+                      });
+                    }}
+                    disabled={isSubmittingEstado}
+                    type="button"
+                  >
+                    Registrar Grupo
+                  </button>
+                  <button
+                    className="admin-button is-ghost"
+                    style={{
+                      width: "100%",
+                      border: "1px solid var(--color-danger, #d32f2f)",
+                      color: "var(--color-danger, #d32f2f)",
+                    }}
+                    onClick={() => {
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: "Eliminar Borrador",
+                        message: "¿Seguro que deseas eliminar este borrador de grupo de trabajo? Esta acción es definitiva y borrará todos los establecimientos y miembros asociados.",
+                        onConfirm: () => handleDeleteGrupo(),
+                      });
+                    }}
+                    disabled={isSubmittingEstado}
+                    type="button"
+                  >
+                    Eliminar Borrador
+                  </button>
+                </div>
+              )}
+
+              {grupo.estado === "VALIDADO" && (
                 <button
-                  className="admin-button is-primary"
-                  style={{ width: "100%" }}
-                  onClick={() => {
-                    const confirm = window.confirm(
-                      "¿Seguro que deseas registrar este grupo de trabajo? Se bloqueará la edición y pasará a revisión.",
-                    );
-                    if (confirm) {
-                      void handleTransitionEstado("REGISTRADO");
-                    }
+                  className="admin-button is-ghost"
+                  style={{
+                    width: "100%",
+                    border: "1px solid var(--muted, #666)",
+                    color: "var(--muted, #666)",
                   }}
-                  disabled={isSubmittingEstado}
+                  onClick={() => {
+                    setConfirmConfig({
+                      isOpen: true,
+                      title: "Archivar Grupo",
+                      message: "¿Seguro que deseas archivar este grupo de trabajo? Ya no estará activo en el sistema, pero se mantendrá su historial.",
+                      onConfirm: () => handleArchivarGrupo(),
+                    });
+                  }}
                   type="button"
                 >
-                  Registrar Grupo
+                  Archivar Grupo
                 </button>
               )}
 
@@ -438,10 +520,12 @@ export function GrupoDetailPage() {
                     className="admin-button is-primary"
                     style={{ width: "100%" }}
                     onClick={() => {
-                      const confirm = window.confirm("¿Aprobar y validar este grupo de trabajo?");
-                      if (confirm) {
-                        void handleTransitionEstado("VALIDADO");
-                      }
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: "Aprobar / Validar Grupo",
+                        message: "¿Seguro que deseas aprobar y validar este grupo de trabajo?",
+                        onConfirm: () => handleTransitionEstado("VALIDADO"),
+                      });
                     }}
                     disabled={isSubmittingEstado}
                     type="button"
@@ -1366,6 +1450,48 @@ export function GrupoDetailPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {/* Modal de Confirmación Genérico */}
+      {confirmConfig.isOpen ? (
+        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
+          <div className="admin-modal" style={{ maxWidth: "480px" }}>
+            <div className="admin-modal-header">
+              <h2>{confirmConfig.title}</h2>
+              <button
+                className="admin-modal-close"
+                onClick={() => setConfirmConfig(curr => ({ ...curr, isOpen: false }))}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: "1.5rem 1rem" }}>
+              <p style={{ margin: 0, fontSize: "1.05rem", lineHeight: "1.5", color: "var(--text)" }}>
+                {confirmConfig.message}
+              </p>
+            </div>
+            <div className="admin-form-actions">
+              <button
+                className="admin-button is-ghost"
+                onClick={() => setConfirmConfig(curr => ({ ...curr, isOpen: false }))}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="admin-button is-primary"
+                onClick={async () => {
+                  setConfirmConfig(curr => ({ ...curr, isOpen: false }));
+                  await confirmConfig.onConfirm();
+                }}
+                type="button"
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </>

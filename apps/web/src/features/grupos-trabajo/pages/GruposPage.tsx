@@ -421,7 +421,7 @@ export function GruposPage() {
                 <th>Nombre del Grupo</th>
                 {user?.rol === "ADMIN_GENERAL" && <th>Municipalidad</th>}
                 <th>Representante</th>
-                <th>Fecha Límite</th>
+                <th>DNI Representante</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -435,7 +435,7 @@ export function GruposPage() {
                     <td>{munisMap[g.municipalidadId] || "Cargando..."}</td>
                   )}
                   <td>{`${g.nombreRepresentante} ${g.apellidosRepresentante}`}</td>
-                  <td>{new Date(g.fechaLimite).toLocaleDateString()}</td>
+                  <td>{g.dniRepresentante}</td>
                   <td>
                     <span className={`status-pill is-active`}>{g.estado}</span>
                   </td>

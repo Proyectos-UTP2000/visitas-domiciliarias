@@ -220,4 +220,23 @@ export class PrismaGruposTrabajoRepository implements GruposTrabajoRepository {
       where: { id },
     });
   }
+
+  async deleteGrupo(id: string): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.miembroGrupo.deleteMany({ where: { grupoTrabajoId: id } }),
+      this.prisma.grupoEstablecimiento.deleteMany({ where: { grupoTrabajoId: id } }),
+      this.prisma.grupoTrabajoArchivo.deleteMany({ where: { grupoTrabajoId: id } }),
+      this.prisma.grupoTrabajo.delete({ where: { id } }),
+    ]);
+  }
+
+  async archivarGrupo(id: string): Promise<GrupoTrabajoRecord> {
+    return this.prisma.grupoTrabajo.update({
+      where: { id },
+      data: {
+        archivado: true,
+        activo: false,
+      },
+    }) as unknown as Promise<GrupoTrabajoRecord>;
+  }
 }

@@ -162,4 +162,6 @@ export type GruposTrabajoRepository = {
   findArchivoById(id: string): Promise<GrupoTrabajoArchivoRecord | null>;
   listArchivos(grupoTrabajoId: string): Promise<GrupoTrabajoArchivoRecord[]>;
   deleteArchivo(id: string): Promise<GrupoTrabajoArchivoRecord>;
+  deleteGrupo(id: string): Promise<void>;
+  archivarGrupo(id: string): Promise<GrupoTrabajoRecord>;
 };

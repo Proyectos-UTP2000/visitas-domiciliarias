@@ -54,7 +54,7 @@ export class GruposTrabajoService {
     id: string,
     input: Partial<GrupoTrabajoCreateInput>
   ): Promise<GrupoTrabajoRecord> {
-    const existing = await this.repository.findGrupoById(id);
+    const existing = await this.repository.findFullGrupoById(id);
     if (!existing) {
       throw new HttpError(404, "Grupo de trabajo no encontrado");
     }
@@ -271,6 +271,40 @@ export class GruposTrabajoService {
         "El establecimiento no pertenece al grupo de trabajo indicado",
       );
     }
+  }
+
+  async deleteGrupo(id: string, userMuniId: string | null): Promise<void> {
+    const existing = await this.repository.findGrupoById(id);
+    if (!existing) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+
+    if (userMuniId && existing.municipalidadId !== userMuniId) {
+      throw new HttpError(403, "No tiene permisos para eliminar este grupo de trabajo");
+    }
+
+    if (existing.estado !== "BORRADOR" && existing.estado !== "OBSERVADO") {
+      throw new HttpError(400, "Solo se pueden eliminar grupos de trabajo en estado borrador u observado");
+    }
+
+    await this.repository.deleteGrupo(id);
+  }
+
+  async archivarGrupo(id: string, userMuniId: string | null): Promise<GrupoTrabajoRecord> {
+    const existing = await this.repository.findGrupoById(id);
+    if (!existing) {
+      throw new HttpError(404, "Grupo de trabajo no encontrado");
+    }
+
+    if (userMuniId && existing.municipalidadId !== userMuniId) {
+      throw new HttpError(403, "No tiene permisos para archivar este grupo de trabajo");
+    }
+
+    if (existing.estado !== "VALIDADO") {
+      throw new HttpError(400, "Solo se pueden archivar grupos de trabajo en estado validado");
+    }
+
+    return this.repository.archivarGrupo(id);
   }
 }
 
