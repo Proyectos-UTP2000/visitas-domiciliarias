@@ -24,6 +24,7 @@ export function SectoresUrbanoPage() {
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<SectorFormState>(emptySectorForm("URBANO"));
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<SectorRecord | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -190,8 +191,10 @@ export function SectoresUrbanoPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const session = getStoredSession();
+      const muniId = session?.user.rol === "ADMIN_MUNICIPAL" ? session.user.municipalidadId : null;
       const [sectoresData, munisData, cpData] = await Promise.all([
-        listSectores(),
+        listSectores(muniId),
         listMunicipalidades(),
         listCentrosPoblados(),
       ]);
@@ -221,6 +224,7 @@ export function SectoresUrbanoPage() {
     setError(null);
     setMessage(null);
     setViewingRecord(null);
+    setShowValidationErrors(false);
 
     const defaultMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : "";
     const muni = municipalidades.find((m) => m.id === defaultMuniId);
@@ -240,24 +244,24 @@ export function SectoresUrbanoPage() {
     setMessage(null);
     setViewingRecord(record);
     setForm(toSectorForm(record));
+    setShowValidationErrors(false);
     setIsFormOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowValidationErrors(true);
     setError(null);
     setMessage(null);
 
-    if (!form.municipalidadId) {
-      setError("Debe seleccionar una municipalidad.");
-      return;
-    }
-    if (!form.zona || form.zona.trim().length > 3) {
-      setError("La zona debe tener entre 1 y 3 caracteres.");
-      return;
-    }
-    if (!form.manzana || form.manzana.trim().length > 10) {
-      setError("La manzana debe tener entre 1 y 10 caracteres.");
+    const isMuniInvalid = !form.municipalidadId;
+    const isCpInvalid = !form.centroPobladoId;
+    const isNombreInvalid = !form.nombreSector.trim();
+    const isZonaInvalid = !form.zona || form.zona.trim().length > 3;
+    const isManzanaInvalid = !form.manzana || form.manzana.trim().length > 10;
+
+    if (isMuniInvalid || isCpInvalid || isNombreInvalid || isZonaInvalid || isManzanaInvalid) {
+      setError("Por favor, complete todos los campos obligatorios.");
       return;
     }
 
@@ -593,7 +597,7 @@ export function SectoresUrbanoPage() {
                       </option>
                     ))}
                   </select>
-                  {!form.municipalidadId && (
+                  {showValidationErrors && !form.municipalidadId && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       La municipalidad es obligatoria.
                     </span>
@@ -627,7 +631,7 @@ export function SectoresUrbanoPage() {
                   onSearchMore={handleSearchCpMore}
                   required
                 />
-                {!form.centroPobladoId && (
+                {showValidationErrors && !form.centroPobladoId && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     El Centro Poblado es obligatorio.
                   </span>
@@ -643,7 +647,7 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, nombreSector: e.target.value }))}
                   placeholder="Ej. Raymondi- I"
                 />
-                {!form.nombreSector.trim() && (
+                {showValidationErrors && !form.nombreSector.trim() && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     El nombre del sector es obligatorio.
                   </span>
@@ -660,7 +664,7 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, zona: e.target.value }))}
                   placeholder="Máx 3 carac. Ej. 7"
                 />
-                {!form.zona.trim() && (
+                {showValidationErrors && !form.zona.trim() && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     La zona es obligatoria.
                   </span>
@@ -677,7 +681,7 @@ export function SectoresUrbanoPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, manzana: e.target.value }))}
                   placeholder="Máx 10 carac. Ej. 26"
                 />
-                {!form.manzana.trim() && (
+                {showValidationErrors && !form.manzana.trim() && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     La manzana es obligatoria.
                   </span>
@@ -691,7 +695,7 @@ export function SectoresUrbanoPage() {
               </button>
               <button
                 className="admin-button is-primary"
-                disabled={isSaving || (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) || !form.centroPobladoId || !form.nombreSector.trim() || !form.zona.trim() || !form.manzana.trim()}
+                disabled={isSaving}
                 type="submit"
               >
                 {isSaving ? "Guardando..." : "Guardar"}
