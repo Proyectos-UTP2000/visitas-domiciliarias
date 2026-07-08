@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { LuSearch } from "react-icons/lu";
+import { LuSearch, LuFolder, LuChevronDown, LuChevronRight } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -79,6 +79,14 @@ export function SectoresRuralPage() {
 
   const [groupBy, setGroupBy] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
+      ...curr,
+      [groupName]: !curr[groupName],
+    }));
+  }
 
   const filteredRecords = useMemo(() => {
     return filterSectores(records, query, "RURAL", muniFilter);
@@ -174,6 +182,18 @@ export function SectoresRuralPage() {
       }
     }
     void loadData();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsFormOpen(false);
+        setSearchModalConfig((curr) => ({ ...curr, isOpen: false }));
+        setConfirmConfig((curr) => ({ ...curr, isOpen: false }));
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   async function loadData() {
@@ -523,12 +543,22 @@ export function SectoresRuralPage() {
               {groupBy ? (
                 groupedRecords && Object.keys(groupedRecords).map((groupName) => (
                   <Fragment key={groupName}>
-                    <tr style={{ background: "#f8f9fa" }}>
+                    <tr
+                      onClick={() => toggleGroupCollapse(groupName)}
+                      style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
+                    >
                       <td colSpan={user?.rol === "ADMIN_GENERAL" ? 10 : 9} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-                        📁 {groupName} ({groupedRecords[groupName].length})
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                          <LuFolder size={18} style={{ color: "#71639e" }} />
+                          <span>{groupName}</span>
+                          <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
+                            ({groupedRecords[groupName].length})
+                          </span>
+                        </div>
                       </td>
                     </tr>
-                    {groupedRecords[groupName].map((r) => renderRow(r))}
+                    {!collapsedGroups[groupName] && groupedRecords[groupName].map((r) => renderRow(r))}
                   </Fragment>
                 ))
               ) : (

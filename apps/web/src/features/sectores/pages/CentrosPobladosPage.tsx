@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { LuSearch, LuSettings } from "react-icons/lu";
+import { LuSearch, LuSettings, LuFolder, LuChevronDown, LuChevronRight } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -49,6 +49,14 @@ export function CentrosPobladosPage() {
 
   const [groupBy, setGroupBy] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
+      ...curr,
+      [groupName]: !curr[groupName],
+    }));
+  }
 
   const filteredRecords = useMemo(() => {
     return filterCentrosPoblados(records, query, muniFilter);
@@ -140,8 +148,19 @@ export function CentrosPobladosPage() {
     function handleOutsideClick() {
       setActiveMenuId(null);
     }
+    // Escape key handler for modals
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsFormOpen(false);
+        setConfirmConfig((curr) => ({ ...curr, isOpen: false }));
+      }
+    }
     document.addEventListener("click", handleOutsideClick);
-    return () => document.removeEventListener("click", handleOutsideClick);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   async function loadData() {
@@ -383,14 +402,13 @@ export function CentrosPobladosPage() {
         )}
 
         <div className="admin-actions-row">
-          <div className="admin-search-wrapper">
-            <LuSearch className="admin-search-icon" />
+          <div className="admin-search-field">
+            <LuSearch className="search-icon" size={18} />
             <input
-              className="admin-search-field"
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nombre o ubigeo..."
               type="text"
+              placeholder="Buscar por nombre o ubigeo..."
               value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
           </div>
 
@@ -474,12 +492,22 @@ export function CentrosPobladosPage() {
               {groupBy ? (
                 groupedRecords && Object.keys(groupedRecords).map((groupName) => (
                   <Fragment key={groupName}>
-                    <tr style={{ background: "#f8f9fa" }}>
+                    <tr
+                      onClick={() => toggleGroupCollapse(groupName)}
+                      style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
+                    >
                       <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-                        📁 {groupName} ({groupedRecords[groupName].length})
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                          <LuFolder size={18} style={{ color: "#71639e" }} />
+                          <span>{groupName}</span>
+                          <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
+                            ({groupedRecords[groupName].length})
+                          </span>
+                        </div>
                       </td>
                     </tr>
-                    {groupedRecords[groupName].map((r) => renderRow(r))}
+                    {!collapsedGroups[groupName] && groupedRecords[groupName].map((r) => renderRow(r))}
                   </Fragment>
                 ))
               ) : (

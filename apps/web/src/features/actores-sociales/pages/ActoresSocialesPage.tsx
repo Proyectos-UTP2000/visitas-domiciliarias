@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, useRef } from "react";
-import { LuSearch, LuSettings, LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { LuSearch, LuSettings, LuChevronLeft, LuChevronRight, LuChevronDown, LuFolder } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -133,6 +133,14 @@ export function ActoresSocialesPage() {
 
   const [groupBy, setGroupBy] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
+      ...curr,
+      [groupName]: !curr[groupName],
+    }));
+  }
 
   const filteredActores = useMemo(() => {
     return filterActores(actores, query, muniFilter, estadoFilter);
@@ -374,6 +382,19 @@ export function ActoresSocialesPage() {
       }
     }
     void loadData();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setViewMode("list");
+        setIsReasonModalOpen(false);
+        setSearchModalConfig((curr) => ({ ...curr, isOpen: false }));
+        setConfirmConfig((curr) => ({ ...curr, isOpen: false }));
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   async function loadData() {
@@ -986,12 +1007,22 @@ export function ActoresSocialesPage() {
                 {groupBy ? (
                   groupedActores && Object.keys(groupedActores).map((groupName) => (
                     <Fragment key={groupName}>
-                      <tr style={{ background: "#f8f9fa" }}>
+                      <tr
+                        onClick={() => toggleGroupCollapse(groupName)}
+                        style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
+                      >
                         <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-                          📁 {groupName} ({groupedActores[groupName].length})
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                            <LuFolder size={18} style={{ color: "#71639e" }} />
+                            <span>{groupName}</span>
+                            <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
+                              ({groupedActores[groupName].length})
+                            </span>
+                          </div>
                         </td>
                       </tr>
-                      {groupedActores[groupName].map((a) => renderRow(a))}
+                      {!collapsedGroups[groupName] && groupedActores[groupName].map((a) => renderRow(a))}
                     </Fragment>
                   ))
                 ) : (
@@ -1069,31 +1100,32 @@ export function ActoresSocialesPage() {
             )}
           </span>
           
-          <button
-            className="admin-button is-primary"
-            onClick={viewMode === "create" ? handleCreateSubmit : handleUpdateSubmit}
-            style={{ marginLeft: "1rem" }}
-            disabled={
-              isSaving ||
-              !form.dni.trim() || form.dni.length !== 8 || 
-              !form.nombres.trim() || 
-              !form.apellidos.trim() || 
-              !form.celular.trim() || form.celular.length !== 9 || 
-              !form.tipoActorSocialId || 
-              !form.grupoTrabajoId || 
-              !form.grupoEstablecimientoId ||
-              (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId)
-            }
-          >
-            {isSaving ? "Guardando..." : "Guardar"}
-          </button>
-          <button
-            className="admin-button is-ghost"
-            onClick={() => setViewMode("list")}
-            type="button"
-          >
-            Cancelar
-          </button>
+          <div style={{ display: "flex", gap: "0.75rem", marginLeft: "1rem" }}>
+            <button
+              className="admin-button is-ghost"
+              onClick={() => setViewMode("list")}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="admin-button is-primary"
+              onClick={viewMode === "create" ? handleCreateSubmit : handleUpdateSubmit}
+              disabled={
+                isSaving ||
+                !form.dni.trim() || form.dni.length !== 8 || 
+                !form.nombres.trim() || 
+                !form.apellidos.trim() || 
+                !form.celular.trim() || form.celular.length !== 9 || 
+                !form.tipoActorSocialId || 
+                !form.grupoTrabajoId || 
+                !form.grupoEstablecimientoId ||
+                (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId)
+              }
+            >
+              {isSaving ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
         </div>
 
         {/* State Flow Bar (Top Right) */}

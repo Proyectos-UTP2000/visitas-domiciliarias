@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LuFolder, LuChevronDown, LuChevronRight } from "react-icons/lu";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
 import { createGrupo, listGrupos } from "../grupos-api";
@@ -56,6 +57,16 @@ export function GruposPage() {
       setUser(session.user);
     }
     void loadData();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsFormOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   async function loadData() {
@@ -82,6 +93,14 @@ export function GruposPage() {
 
   const [groupBy, setGroupBy] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
+      ...curr,
+      [groupName]: !curr[groupName],
+    }));
+  }
 
   const filteredGrupos = useMemo(() => {
     return filterGrupos(
@@ -613,12 +632,22 @@ export function GruposPage() {
               {groupBy ? (
                 groupedGrupos && Object.keys(groupedGrupos).map((groupName) => (
                   <Fragment key={groupName}>
-                    <tr style={{ background: "#f8f9fa" }}>
+                    <tr
+                      onClick={() => toggleGroupCollapse(groupName)}
+                      style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
+                    >
                       <td colSpan={user?.rol === "ADMIN_GENERAL" ? 7 : 6} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-                        📁 {groupName} ({groupedGrupos[groupName].length})
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                          <LuFolder size={18} style={{ color: "#71639e" }} />
+                          <span>{groupName}</span>
+                          <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
+                            ({groupedGrupos[groupName].length})
+                          </span>
+                        </div>
                       </td>
                     </tr>
-                    {groupedGrupos[groupName].map((g) => renderRow(g))}
+                    {!collapsedGroups[groupName] && groupedGrupos[groupName].map((g) => renderRow(g))}
                   </Fragment>
                 ))
               ) : (
