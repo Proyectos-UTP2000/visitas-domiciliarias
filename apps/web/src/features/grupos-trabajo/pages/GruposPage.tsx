@@ -17,6 +17,7 @@ export function GruposPage() {
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<GrupoTrabajoFormState>(emptyGrupoForm);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSearchingDni, setIsSearchingDni] = useState(false);
@@ -50,6 +51,22 @@ export function GruposPage() {
   const [estadoFilter, setEstadoFilter] = useState("");
   const [periodoFilter, setPeriodoFilter] = useState("");
   const [muniFilter, setMuniFilter] = useState("");
+
+  const isFiltering = estadoFilter !== "" || periodoFilter !== "" || muniFilter !== "";
+
+  useEffect(() => {
+    if (!showFilters) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".admin-filters-panel") && !target.closest(".admin-button.is-ghost")) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilters]);
 
   useEffect(() => {
     const session = getStoredSession();
@@ -191,45 +208,49 @@ export function GruposPage() {
     });
     setError(null);
     setMessage(null);
+    setShowValidationErrors(false);
     setIsFormOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsSaving(true);
-    setError(null);
-    setMessage(null);
+    setShowValidationErrors(true);
+
+    const resolvedMuniId = user?.rol === "ADMIN_GENERAL" ? form.municipalidadId : user?.municipalidadId;
+    const isMuniInvalid = user?.rol === "ADMIN_GENERAL" && !form.municipalidadId;
+    const isNombreInvalid = !form.nombreGrupo.trim();
+    const year = Number(form.periodoYear);
+    const isPeriodoInvalid = isNaN(year) || year < 2000 || year > 32767;
+    const isFechaInvalid = !form.fechaLimite;
+    const isDniInvalid = !/^\d{8}$/.test(form.dniRepresentante);
+    const isNombreRepInvalid = !form.nombreRepresentante.trim();
+    const isApellidosRepInvalid = !form.apellidosRepresentante.trim();
+
+    if (
+      isMuniInvalid ||
+      isNombreInvalid ||
+      isPeriodoInvalid ||
+      isFechaInvalid ||
+      isDniInvalid ||
+      isNombreRepInvalid ||
+      isApellidosRepInvalid
+    ) {
+      return;
+    }
 
     const todayStr = new Date().toISOString().split("T")[0];
     if (form.fechaLimite < todayStr) {
       setError("La fecha límite debe ser una fecha futura (a partir de hoy).");
-      setIsSaving(false);
       return;
     }
 
-    if (!/^\d{8}$/.test(form.dniRepresentante)) {
-      setError("El DNI del representante debe tener exactamente 8 dígitos.");
-      setIsSaving(false);
-      return;
-    }
-
-    const year = Number(form.periodoYear);
-    if (isNaN(year) || year < 2000 || year > 32767) {
-      setError("El período anual debe ser un número válido entre 2000 y 32767.");
-      setIsSaving(false);
-      return;
-    }
-
-    const resolvedMuniId = user?.rol === "ADMIN_GENERAL" ? form.municipalidadId : user?.municipalidadId;
-    if (!resolvedMuniId) {
-      setError("Debe seleccionar una municipalidad.");
-      setIsSaving(false);
-      return;
-    }
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
 
     try {
       const saved = await createGrupo({
-        municipalidadId: resolvedMuniId,
+        municipalidadId: resolvedMuniId!,
         fechaLimite: form.fechaLimite,
         nombreGrupo: form.nombreGrupo.trim(),
         periodoYear: year,
@@ -296,121 +317,299 @@ export function GruposPage() {
       </section>
 
       <section className="admin-content-card" aria-label="Listado de Grupos">
-        <div className="admin-actions-row">
-          <label className="admin-search-field">
-            <span aria-hidden="true">⌕</span>
-            <input
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nombre o representante..."
-              type="search"
-              value={query}
-            />
-          </label>
-
-          <div className="admin-actions-group" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-            <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-              <span style={{ fontSize: "0.9rem", color: "var(--muted)", fontWeight: "500" }}>Agrupar por:</span>
-              <select
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value)}
-                style={{
-                  height: "38px",
-                  background: "white",
-                  color: "#333",
-                  border: "1px solid #ccc",
-                  borderRadius: "0.25rem",
-                  padding: "0 0.5rem",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="">Ninguno</option>
-                {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
-                <option value="estado">Estado</option>
-              </select>
+        <div style={{ position: "relative" }}>
+          <div className="admin-actions-row">
+            <label className="admin-search-field">
+              <span aria-hidden="true">⌕</span>
+              <input
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar por nombre o representante..."
+                type="search"
+                value={query}
+              />
             </label>
 
-            <button
-              className={`admin-button is-ghost${showFilters ? " is-active" : ""}`}
-              onClick={() => setShowFilters(!showFilters)}
-              style={{ height: "38px" }}
-              type="button"
-            >
-              Filtros
-            </button>
-            <button
-              className="admin-button is-primary"
-              onClick={openCreate}
-              type="button"
-            >
-              + Nuevo grupo
-            </button>
-          </div>
-        </div>
-
-        {showFilters ? (
-          <div
-            className="admin-filters-panel"
-            style={{
-              display: "flex",
-              gap: "1rem",
-              marginBottom: "1rem",
-              padding: "1rem",
-              background: "var(--color-bg-alt, rgba(0,0,0,0.02))",
-              borderRadius: "8px",
-              border: "1px solid var(--color-border, rgba(0,0,0,0.08))",
-            }}
-          >
-            <label className="field" style={{ margin: 0, flex: 1 }}>
-              Estado
-              <select
-                onChange={(e) => setEstadoFilter(e.target.value)}
-                style={{ width: "100%", marginTop: "0.25rem" }}
-                value={estadoFilter}
-              >
-                <option value="">Todos</option>
-                <option value="BORRADOR">Borrador</option>
-                <option value="REGISTRADO">Registrado</option>
-                <option value="OBSERVADO">Observado</option>
-                <option value="VALIDADO">Validado</option>
-              </select>
-            </label>
-            <label className="field" style={{ margin: 0, flex: 1 }}>
-              Periodo
-              <select
-                onChange={(e) => setPeriodoFilter(e.target.value)}
-                style={{ width: "100%", marginTop: "0.25rem" }}
-                value={periodoFilter}
-              >
-                <option value="">Todos</option>
-                {availablePeriods.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {user?.rol === "ADMIN_GENERAL" ? (
-              <label className="field" style={{ margin: 0, flex: 1 }}>
-                Municipalidad
+            <div className="admin-actions-group" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+              <label style={{ display: "flex", margin: 0, alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--muted)", fontWeight: "500" }}>Agrupar por:</span>
                 <select
-                  onChange={(e) => setMuniFilter(e.target.value)}
-                  style={{ width: "100%", marginTop: "0.25rem" }}
-                  value={muniFilter}
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                  style={{
+                    height: "38px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "0.25rem",
+                    padding: "0 0.5rem",
+                    cursor: "pointer",
+                  }}
                 >
-                  <option value="">Todas</option>
-                  {municipalidades.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre}
+                  <option value="">Ninguno</option>
+                  {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
+                  <option value="estado">Estado</option>
+                </select>
+              </label>
+
+              <button
+                className={`admin-button is-ghost${showFilters ? " is-active" : ""}`}
+                onClick={() => setShowFilters(!showFilters)}
+                style={{ height: "38px" }}
+                type="button"
+              >
+                Filtros
+              </button>
+              <button
+                className="admin-button is-primary"
+                onClick={openCreate}
+                type="button"
+              >
+                + Nuevo grupo
+              </button>
+            </div>
+          </div>
+
+          {showFilters ? (
+            <div
+              className="admin-filters-panel"
+              style={{
+                position: "absolute",
+                top: "calc(100% - 0.25rem)",
+                right: 0,
+                zIndex: 100,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+                padding: "1rem",
+                background: "white",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                width: "300px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", marginBottom: "0.25rem" }}>
+                <span style={{ fontWeight: "bold", fontSize: "0.9rem", color: "var(--text)" }}>Filtros</span>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "1.1rem", color: "var(--muted)", padding: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
+                Estado
+                <select
+                  onChange={(e) => setEstadoFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "0.25rem",
+                    padding: "0 0.5rem",
+                  }}
+                  value={estadoFilter}
+                >
+                  <option value="">Todos</option>
+                  <option value="BORRADOR">Borrador</option>
+                  <option value="REGISTRADO">Registrado</option>
+                  <option value="OBSERVADO">Observado</option>
+                  <option value="VALIDADO">Validado</option>
+                </select>
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
+                Periodo
+                <select
+                  onChange={(e) => setPeriodoFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "0.25rem",
+                    padding: "0 0.5rem",
+                  }}
+                  value={periodoFilter}
+                >
+                  <option value="">Todos</option>
+                  {availablePeriods.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
                     </option>
                   ))}
                 </select>
               </label>
-            ) : null}
-          </div>
-        ) : null}
+              {user?.rol === "ADMIN_GENERAL" ? (
+                <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
+                  Municipalidad
+                  <select
+                    onChange={(e) => setMuniFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "38px",
+                      background: "white",
+                      color: "#333",
+                      border: "1px solid #ccc",
+                      borderRadius: "0.25rem",
+                      padding: "0 0.5rem",
+                    }}
+                    value={muniFilter}
+                  >
+                    <option value="">Todas</option>
+                    {municipalidades.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         {message ? <p className="alert alert-success">{message}</p> : null}
         {error ? <p className="alert alert-error">{error}</p> : null}
+
+        {isFiltering ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              marginBottom: "1rem",
+              padding: "0.5rem 0.75rem",
+              background: "#f0fdfa",
+              border: "1px solid #ccfbf1",
+              borderRadius: "6px",
+              fontSize: "0.875rem",
+              color: "#0f766e",
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>Filtrando por:</span>
+            {estadoFilter ? (
+              <span
+                style={{
+                  background: "#e2e8f0",
+                  color: "#334155",
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontWeight: 500,
+                }}
+              >
+                Estado: {estadoFilter}
+                <button
+                  onClick={() => setEstadoFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontWeight: "bold",
+                    color: "#64748b",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+            {periodoFilter ? (
+              <span
+                style={{
+                  background: "#e2e8f0",
+                  color: "#334155",
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontWeight: 500,
+                }}
+              >
+                Periodo: {periodoFilter}
+                <button
+                  onClick={() => setPeriodoFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontWeight: "bold",
+                    color: "#64748b",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+            {muniFilter ? (
+              <span
+                style={{
+                  background: "#e2e8f0",
+                  color: "#334155",
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontWeight: 500,
+                }}
+              >
+                Muni: {munisMap[muniFilter] || muniFilter}
+                <button
+                  onClick={() => setMuniFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontWeight: "bold",
+                    color: "#64748b",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+            <button
+              onClick={() => {
+                setEstadoFilter("");
+                setPeriodoFilter("");
+                setMuniFilter("");
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#b91c1c",
+                cursor: "pointer",
+                padding: "0.15rem 0.3rem",
+                textDecoration: "underline",
+                fontWeight: 500,
+                fontSize: "0.85rem",
+              }}
+              type="button"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        ) : null}
 
         {isFormOpen ? (
           <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
@@ -447,7 +646,7 @@ export function GruposPage() {
                         </option>
                       ))}
                     </select>
-                    {!form.municipalidadId && (
+                    {showValidationErrors && !form.municipalidadId && (
                       <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                         La municipalidad es obligatoria.
                       </span>
@@ -464,7 +663,7 @@ export function GruposPage() {
                     required
                     value={form.nombreGrupo}
                   />
-                  {!form.nombreGrupo.trim() && (
+                  {showValidationErrors && !form.nombreGrupo.trim() && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       El nombre del grupo es obligatorio.
                     </span>
@@ -482,7 +681,7 @@ export function GruposPage() {
                     type="number"
                     value={form.periodoYear}
                   />
-                  {(!form.periodoYear || Number(form.periodoYear) < 2000 || Number(form.periodoYear) > 32767) && (
+                  {showValidationErrors && (!form.periodoYear || Number(form.periodoYear) < 2000 || Number(form.periodoYear) > 32767) && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       El periodo debe ser un año entre 2000 y 32767.
                     </span>
@@ -499,7 +698,7 @@ export function GruposPage() {
                     type="date"
                     value={form.fechaLimite}
                   />
-                  {!form.fechaLimite && (
+                  {showValidationErrors && !form.fechaLimite && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       La fecha límite es obligatoria.
                     </span>
@@ -527,7 +726,7 @@ export function GruposPage() {
                       {isSearchingDni ? "..." : "Consultar"}
                     </button>
                   </div>
-                  {(!form.dniRepresentante.trim() || form.dniRepresentante.length !== 8) && (
+                  {showValidationErrors && (!form.dniRepresentante.trim() || form.dniRepresentante.length !== 8) && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       DNI debe tener exactamente 8 dígitos.
                     </span>
@@ -543,7 +742,7 @@ export function GruposPage() {
                     required
                     value={form.nombreRepresentante}
                   />
-                  {!form.nombreRepresentante.trim() && (
+                  {showValidationErrors && !form.nombreRepresentante.trim() && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       El nombre del representante es obligatorio.
                     </span>
@@ -559,7 +758,7 @@ export function GruposPage() {
                     required
                     value={form.apellidosRepresentante}
                   />
-                  {!form.apellidosRepresentante.trim() && (
+                  {showValidationErrors && !form.apellidosRepresentante.trim() && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       Los apellidos del representante son obligatorios.
                     </span>
@@ -577,16 +776,7 @@ export function GruposPage() {
                 </button>
                 <button
                   className="admin-button is-primary"
-                  disabled={
-                    isSaving ||
-                    (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) ||
-                    !form.nombreGrupo.trim() ||
-                    !form.periodoYear || Number(form.periodoYear) < 2000 || Number(form.periodoYear) > 32767 ||
-                    !form.fechaLimite ||
-                    !form.dniRepresentante.trim() || form.dniRepresentante.length !== 8 ||
-                    !form.nombreRepresentante.trim() ||
-                    !form.apellidosRepresentante.trim()
-                  }
+                  disabled={isSaving}
                   type="submit"
                 >
                   {isSaving ? "Guardando..." : "Crear grupo"}

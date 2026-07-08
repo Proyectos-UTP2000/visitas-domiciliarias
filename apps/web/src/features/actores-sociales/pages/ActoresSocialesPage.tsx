@@ -89,6 +89,22 @@ export function ActoresSocialesPage() {
   const [estadoFilter, setEstadoFilter] = useState("");
   const [muniFilter, setMuniFilter] = useState("");
 
+  const isFiltering = estadoFilter !== "" || muniFilter !== "";
+
+  useEffect(() => {
+    if (!showFilters) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".admin-filters-panel") && !target.closest(".admin-button.is-ghost")) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilters]);
+
   // Deletion logic with reason
   const [isReasonModalOpen, setIsReasonModalOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
@@ -341,6 +357,21 @@ export function ActoresSocialesPage() {
     return est ? est.nombre : "";
   }, [grupos, form.grupoTrabajoId, form.grupoEstablecimientoId]);
 
+  const sectoresAsignadosAOtros = useMemo(() => {
+    const map: Record<string, { actorName: string; actorId: string }> = {};
+    actores.forEach((act) => {
+      if (act.activo && !act.archivado && (!viewingActor || act.id !== viewingActor.id)) {
+        act.sectores?.forEach((sec: any) => {
+          map[sec.id] = {
+            actorName: `${act.nombres} ${act.apellidos}`,
+            actorId: act.id,
+          };
+        });
+      }
+    });
+    return map;
+  }, [actores, viewingActor]);
+
   // Manzanas/Urban sectors available for assignment in this municipalidad
   const availableManzanas = useMemo(() => {
     const muniId = form.municipalidadId;
@@ -410,7 +441,7 @@ export function ActoresSocialesPage() {
         listTiposActorSocial(),
         listGrupos(userMuniId),
         listEntidades(),
-        listSectores(),
+        listSectores(userMuniId),
         listCentrosPoblados(),
       ]);
 
@@ -893,6 +924,7 @@ export function ActoresSocialesPage() {
             </div>
           )}
 
+        <div style={{ position: "relative" }}>
           <div className="admin-actions-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
             <div className="admin-search-field" style={{ position: "relative", flex: 1, maxWidth: "450px" }}>
               <LuSearch className="search-icon" size={18} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
@@ -906,7 +938,7 @@ export function ActoresSocialesPage() {
             </div>
 
             <div className="admin-actions-group" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-              <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+              <label style={{ display: "flex", margin: 0, alignItems: "center", gap: "0.5rem" }}>
                 <span style={{ fontSize: "0.9rem", color: "var(--muted)", fontWeight: "500" }}>Agrupar por:</span>
                 <select
                   value={groupBy}
@@ -940,11 +972,50 @@ export function ActoresSocialesPage() {
           </div>
 
           {showFilters && (
-            <div className="admin-filters-grid" style={{ marginBottom: "1.25rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", padding: "1.25rem", background: "#f8f9fa", borderRadius: "0.55rem", border: "1px solid #eee" }}>
+            <div
+              className="admin-filters-panel"
+              style={{
+                position: "absolute",
+                top: "calc(100% - 0.25rem)",
+                right: 0,
+                zIndex: 100,
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+                padding: "1rem",
+                background: "white",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                width: "300px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", marginBottom: "0.25rem" }}>
+                <span style={{ fontWeight: "bold", fontSize: "0.9rem", color: "var(--text)" }}>Filtros</span>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "1.1rem", color: "var(--muted)", padding: 0 }}
+                >
+                  ×
+                </button>
+              </div>
               {user?.rol === "ADMIN_GENERAL" && (
-                <label className="field">
+                <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
                   Municipalidad
-                  <select value={muniFilter} onChange={(e) => setMuniFilter(e.target.value)}>
+                  <select
+                    value={muniFilter}
+                    onChange={(e) => setMuniFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      height: "38px",
+                      background: "white",
+                      color: "#333",
+                      border: "1px solid #ccc",
+                      borderRadius: "0.25rem",
+                      padding: "0 0.5rem",
+                    }}
+                  >
                     <option value="">Todas</option>
                     {municipalidades.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -955,9 +1026,21 @@ export function ActoresSocialesPage() {
                 </label>
               )}
 
-              <label className="field">
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
                 Estado
-                <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)}>
+                <select
+                  value={estadoFilter}
+                  onChange={(e) => setEstadoFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    background: "white",
+                    color: "#333",
+                    border: "1px solid #ccc",
+                    borderRadius: "0.25rem",
+                    padding: "0 0.5rem",
+                  }}
+                >
                   <option value="">Todos</option>
                   <option value="BORRADOR">Borrador</option>
                   <option value="REGISTRADO">Registrado</option>
@@ -967,6 +1050,110 @@ export function ActoresSocialesPage() {
               </label>
             </div>
           )}
+        </div>
+
+        {isFiltering ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              marginBottom: "1rem",
+              padding: "0.5rem 0.75rem",
+              background: "#f0fdfa",
+              border: "1px solid #ccfbf1",
+              borderRadius: "6px",
+              fontSize: "0.875rem",
+              color: "#0f766e",
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>Filtrando por:</span>
+            {estadoFilter ? (
+              <span
+                style={{
+                  background: "#e2e8f0",
+                  color: "#334155",
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontWeight: 500,
+                }}
+              >
+                Estado: {estadoFilter}
+                <button
+                  onClick={() => setEstadoFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontWeight: "bold",
+                    color: "#64748b",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+            {muniFilter ? (
+              <span
+                style={{
+                  background: "#e2e8f0",
+                  color: "#334155",
+                  padding: "0.15rem 0.45rem",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  fontWeight: 500,
+                }}
+              >
+                Muni: {municipalidades.find(m => m.id === muniFilter)?.nombre || muniFilter}
+                <button
+                  onClick={() => setMuniFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    fontWeight: "bold",
+                    color: "#64748b",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+            <button
+              onClick={() => {
+                setEstadoFilter("");
+                setMuniFilter("");
+              }}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#b91c1c",
+                cursor: "pointer",
+                padding: "0.15rem 0.3rem",
+                textDecoration: "underline",
+                fontWeight: 500,
+                fontSize: "0.85rem",
+              }}
+              type="button"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        ) : null}
 
           <div className="admin-table-meta" style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>
             <span>{filteredActores.length} actores sociales encontrados</span>
@@ -1534,6 +1721,7 @@ export function ActoresSocialesPage() {
                   border: "none",
                   borderBottom: activeTab === "registros" ? "3px solid #71639e" : "none",
                   fontWeight: activeTab === "registros" ? "bold" : "normal",
+                  color: activeTab === "registros" ? "#71639e" : "var(--muted)",
                   cursor: "pointer",
                   fontSize: "1rem"
                 }}
@@ -1549,6 +1737,7 @@ export function ActoresSocialesPage() {
                   border: "none",
                   borderBottom: activeTab === "manzanas" ? "3px solid #71639e" : "none",
                   fontWeight: activeTab === "manzanas" ? "bold" : "normal",
+                  color: activeTab === "manzanas" ? "#71639e" : "var(--muted)",
                   cursor: "pointer",
                   fontSize: "1rem"
                 }}
@@ -1603,9 +1792,17 @@ export function ActoresSocialesPage() {
                     <tbody>
                       {paginatedManzanas.map((m) => {
                         const isAssigned = form.sectoresIds.includes(m.id);
+                        const asignadoAOtro = sectoresAsignadosAOtros[m.id];
                         return (
-                          <tr key={m.id}>
-                            <td>{m.nombreSector}</td>
+                          <tr key={m.id} style={asignadoAOtro ? { backgroundColor: "rgba(239, 68, 68, 0.05)" } : undefined}>
+                            <td>
+                              {m.nombreSector}
+                              {asignadoAOtro && (
+                                <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "500" }}>
+                                  ⚠️ Asignado a: {asignadoAOtro.actorName}
+                                </div>
+                              )}
+                            </td>
                             <td>{m.urbano?.zona || "-"}</td>
                             <td>{m.urbano?.manzana || "-"}</td>
                             <td style={{ textAlign: "center" }}>
