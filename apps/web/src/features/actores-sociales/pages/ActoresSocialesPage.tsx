@@ -80,6 +80,7 @@ export function ActoresSocialesPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isSearchingDni, setIsSearchingDni] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -495,6 +496,7 @@ export function ActoresSocialesPage() {
     setError(null);
     setMessage(null);
     setViewingActor(null);
+    setShowValidationErrors(false);
     const initialPass = generateSecurePassword();
     setForm({
       ...emptyActorSocialForm,
@@ -517,6 +519,7 @@ export function ActoresSocialesPage() {
     setMessage(null);
     setViewingActor(actor);
     setForm(toActorSocialForm(actor));
+    setShowValidationErrors(false);
     setTimeline([
       {
         id: "1",
@@ -532,19 +535,31 @@ export function ActoresSocialesPage() {
 
   async function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowValidationErrors(true);
     setError(null);
     setMessage(null);
 
-    if (!form.municipalidadId) {
-      setError("Debe seleccionar una municipalidad.");
-      return;
-    }
-    if (!form.nombres || !form.apellidos) {
-      setError("Debe consultar el DNI para autocompletar el nombre.");
-      return;
-    }
-    if (!/^\d{9}$/.test(form.celular)) {
-      setError("El celular debe tener exactamente 9 dígitos.");
+    const resolvedMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : form.municipalidadId;
+    const isMuniInvalid = user?.rol === "ADMIN_GENERAL" && !form.municipalidadId;
+    const isDniInvalid = !/^\d{8}$/.test(form.dni);
+    const isNombresInvalid = !form.nombres.trim();
+    const isApellidosInvalid = !form.apellidos.trim();
+    const isCelularInvalid = !/^\d{9}$/.test(form.celular);
+    const isTipoInvalid = !form.tipoActorSocialId;
+    const isGrupoInvalid = !form.grupoTrabajoId;
+    const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
+
+    if (
+      isMuniInvalid ||
+      isDniInvalid ||
+      isNombresInvalid ||
+      isApellidosInvalid ||
+      isCelularInvalid ||
+      isTipoInvalid ||
+      isGrupoInvalid ||
+      isEstablecimientoInvalid
+    ) {
+      setError("Por favor, complete todos los campos obligatorios marcados con *.");
       return;
     }
 
@@ -575,11 +590,17 @@ export function ActoresSocialesPage() {
   async function handleUpdateSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!viewingActor) return;
+    setShowValidationErrors(true);
     setError(null);
     setMessage(null);
 
-    if (!/^\d{9}$/.test(form.celular)) {
-      setError("El celular debe tener exactamente 9 dígitos.");
+    const isCelularInvalid = !/^\d{9}$/.test(form.celular);
+    const isTipoInvalid = !form.tipoActorSocialId;
+    const isGrupoInvalid = !form.grupoTrabajoId;
+    const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
+
+    if (isCelularInvalid || isTipoInvalid || isGrupoInvalid || isEstablecimientoInvalid) {
+      setError("Por favor, complete todos los campos obligatorios marcados con *.");
       return;
     }
 
@@ -1234,7 +1255,7 @@ export function ActoresSocialesPage() {
   const currentStepIndex = ["BORRADOR", "REGISTRADO", "VALIDO", "APROBADO"].indexOf(form.estado || "BORRADOR");
 
   return (
-    <>
+    <div style={{ width: "min(100% - 3rem, 1600px)", marginLeft: "auto", marginRight: "auto", paddingTop: "2rem", paddingBottom: "2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "1rem", marginBottom: "2rem" }}>
         
         {/* Detail/Create Top Left controls */}
@@ -1298,17 +1319,7 @@ export function ActoresSocialesPage() {
             <button
               className="admin-button is-primary"
               onClick={viewMode === "create" ? handleCreateSubmit : handleUpdateSubmit}
-              disabled={
-                isSaving ||
-                !form.dni.trim() || form.dni.length !== 8 || 
-                !form.nombres.trim() || 
-                !form.apellidos.trim() || 
-                !form.celular.trim() || form.celular.length !== 9 || 
-                !form.tipoActorSocialId || 
-                !form.grupoTrabajoId || 
-                !form.grupoEstablecimientoId ||
-                (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId)
-              }
+              disabled={isSaving}
             >
               {isSaving ? "Guardando..." : "Guardar"}
             </button>
@@ -1391,7 +1402,7 @@ export function ActoresSocialesPage() {
                       </option>
                     ))}
                   </select>
-                  {!form.tipoActorSocialId && (
+                  {showValidationErrors && !form.tipoActorSocialId && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       El tipo de actor social es obligatorio.
                     </span>
@@ -1424,7 +1435,7 @@ export function ActoresSocialesPage() {
                       </button>
                     )}
                   </div>
-                  {(!form.dni.trim() || form.dni.length !== 8) && (
+                  {showValidationErrors && (!form.dni.trim() || form.dni.length !== 8) && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       DNI debe tener exactamente 8 dígitos.
                     </span>
@@ -1440,7 +1451,7 @@ export function ActoresSocialesPage() {
                     value={form.apellidos}
                     placeholder="Se autocompleta con DNI"
                   />
-                  {!form.apellidos.trim() && (
+                  {showValidationErrors && !form.apellidos.trim() && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       Los apellidos son obligatorios (consulte el DNI).
                     </span>
@@ -1456,7 +1467,7 @@ export function ActoresSocialesPage() {
                     value={form.nombres}
                     placeholder="Se autocompleta con DNI"
                   />
-                  {!form.nombres.trim() && (
+                  {showValidationErrors && !form.nombres.trim() && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       Los nombres son obligatorios (consulte el DNI).
                     </span>
@@ -1506,7 +1517,7 @@ export function ActoresSocialesPage() {
                     onChange={(e) => setForm((curr) => ({ ...curr, celular: e.target.value }))}
                     placeholder="Ej. 987654321"
                   />
-                  {(!form.celular.trim() || form.celular.length !== 9) && (
+                  {showValidationErrors && (!form.celular.trim() || form.celular.length !== 9) && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       Celular debe tener exactamente 9 dígitos.
                     </span>
@@ -1887,7 +1898,7 @@ export function ActoresSocialesPage() {
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             placeholder="Escribe una nota interna aquí..."
-            style={{ marginTop: "1.5rem", padding: "0.75rem", borderRadius: "0.25rem", border: "1px solid var(--border)", width: "100%" }}
+            style={{ marginTop: "1.5rem", padding: "0.75rem", borderRadius: "0.25rem", border: "1px solid var(--border)", width: "100%", background: "white", color: "var(--text)" }}
           />
         </div>
       </div>
@@ -2121,6 +2132,6 @@ export function ActoresSocialesPage() {
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
