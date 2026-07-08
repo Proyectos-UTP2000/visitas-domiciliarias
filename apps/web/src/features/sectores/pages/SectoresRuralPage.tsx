@@ -24,6 +24,7 @@ export function SectoresRuralPage() {
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<SectorFormState>(emptySectorForm("RURAL"));
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<SectorRecord | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -200,8 +201,10 @@ export function SectoresRuralPage() {
     setIsLoading(true);
     setError(null);
     try {
+      const session = getStoredSession();
+      const muniId = session?.user.rol === "ADMIN_MUNICIPAL" ? session.user.municipalidadId : null;
       const [sectoresData, munisData, cpData] = await Promise.all([
-        listSectores(),
+        listSectores(muniId),
         listMunicipalidades(),
         listCentrosPoblados(),
       ]);
@@ -231,6 +234,7 @@ export function SectoresRuralPage() {
     setError(null);
     setMessage(null);
     setViewingRecord(null);
+    setShowValidationErrors(false);
 
     const defaultMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : "";
     const muni = municipalidades.find((m) => m.id === defaultMuniId);
@@ -250,20 +254,22 @@ export function SectoresRuralPage() {
     setMessage(null);
     setViewingRecord(record);
     setForm(toSectorForm(record));
+    setShowValidationErrors(false);
     setIsFormOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowValidationErrors(true);
     setError(null);
     setMessage(null);
 
-    if (!form.municipalidadId) {
-      setError("Debe seleccionar una municipalidad.");
-      return;
-    }
-    if (!form.codigo.trim()) {
-      setError("El código/ubigeo del CC.PP es requerido.");
+    const isMuniInvalid = !form.municipalidadId;
+    const isCpInvalid = !form.centroPobladoId;
+    const isNombreInvalid = !form.nombreSector.trim();
+
+    if (isMuniInvalid || isCpInvalid || isNombreInvalid) {
+      setError("Por favor, complete todos los campos obligatorios.");
       return;
     }
 
@@ -604,7 +610,7 @@ export function SectoresRuralPage() {
                       </option>
                     ))}
                   </select>
-                  {!form.municipalidadId && (
+                  {showValidationErrors && !form.municipalidadId && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       La municipalidad es obligatoria.
                     </span>
@@ -654,7 +660,7 @@ export function SectoresRuralPage() {
                   onSearchMore={handleSearchCpMore}
                   required
                 />
-                {!form.centroPobladoId && (
+                {showValidationErrors && !form.centroPobladoId && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     El Centro Poblado es obligatorio.
                   </span>
@@ -670,7 +676,7 @@ export function SectoresRuralPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, nombreSector: e.target.value }))}
                   placeholder="Ej. Chosica del Norte IX"
                 />
-                {!form.nombreSector.trim() && (
+                {showValidationErrors && !form.nombreSector.trim() && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     El nombre del sector es obligatorio.
                   </span>
@@ -717,7 +723,7 @@ export function SectoresRuralPage() {
               </button>
               <button
                 className="admin-button is-primary"
-                disabled={isSaving || (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) || !form.centroPobladoId || !form.nombreSector.trim()}
+                disabled={isSaving}
                 type="submit"
               >
                 {isSaving ? "Guardando..." : "Guardar"}
