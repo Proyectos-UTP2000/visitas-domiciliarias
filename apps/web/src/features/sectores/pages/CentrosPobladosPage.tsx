@@ -21,6 +21,7 @@ export function CentrosPobladosPage() {
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<CentroPobladoFormState>(emptyCentroPobladoForm("URBANO"));
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<CentroPobladoRecord | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -184,6 +185,7 @@ export function CentrosPobladosPage() {
     setError(null);
     setMessage(null);
     setViewingRecord(null);
+    setShowValidationErrors(false);
 
     const defaultMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : "";
 
@@ -199,20 +201,20 @@ export function CentrosPobladosPage() {
     setMessage(null);
     setViewingRecord(record);
     setForm(toCentroPobladoForm(record));
+    setShowValidationErrors(false);
     setIsFormOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowValidationErrors(true);
     setError(null);
     setMessage(null);
 
-    if (!form.municipalidadId) {
-      setError("Debe seleccionar una municipalidad.");
-      return;
-    }
-    if (!form.nombre.trim()) {
-      setError("El nombre es requerido.");
+    const isMuniInvalid = !form.municipalidadId;
+    const isNombreInvalid = !form.nombre.trim();
+    if (isMuniInvalid || isNombreInvalid) {
+      setError("Por favor, complete todos los campos obligatorios.");
       return;
     }
 
@@ -553,7 +555,7 @@ export function CentrosPobladosPage() {
                       </option>
                     ))}
                   </select>
-                  {!form.municipalidadId && (
+                  {showValidationErrors && !form.municipalidadId && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                       La municipalidad es obligatoria.
                     </span>
@@ -570,7 +572,7 @@ export function CentrosPobladosPage() {
                   onChange={(e) => setForm((curr) => ({ ...curr, nombre: e.target.value }))}
                   placeholder="Ej. CASDAS"
                 />
-                {!form.nombre.trim() && (
+                {showValidationErrors && !form.nombre.trim() && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
                     El nombre del Centro Poblado es obligatorio.
                   </span>
@@ -632,7 +634,7 @@ export function CentrosPobladosPage() {
               </button>
               <button
                 className="admin-button is-primary"
-                disabled={isSaving || (user?.rol === "ADMIN_GENERAL" && !form.municipalidadId) || !form.nombre.trim()}
+                disabled={isSaving}
                 type="submit"
               >
                 {isSaving ? "Guardando..." : "Guardar"}
