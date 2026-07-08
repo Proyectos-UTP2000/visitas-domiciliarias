@@ -23,6 +23,7 @@ import {
 } from "../actores-sociales-api";
 import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial } from "../actores-sociales-types";
 import { emptyActorSocialForm, filterActores, toActorSocialForm } from "../actores-sociales-utils";
+import "../actores-sociales.css";
 
 function generateSecurePassword(): string {
   const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -1255,7 +1256,7 @@ export function ActoresSocialesPage() {
   const currentStepIndex = ["BORRADOR", "REGISTRADO", "VALIDO", "APROBADO"].indexOf(form.estado || "BORRADOR");
 
   return (
-    <div style={{ width: "min(100% - 3rem, 1600px)", marginLeft: "auto", marginRight: "auto", paddingTop: "2rem", paddingBottom: "2rem" }}>
+    <div className="actores-detail-container">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "1rem", marginBottom: "2rem" }}>
         
         {/* Detail/Create Top Left controls */}
@@ -1376,12 +1377,12 @@ export function ActoresSocialesPage() {
       )}
 
       {/* Main detail page split layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "2.8fr 1.2fr", gap: "2rem" }}>
+      <div className="actores-split-layout">
         
         {/* Left Side: General Form Panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
           
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr", gap: "2.5rem", background: "white", padding: "2rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div className="actores-form-panel">
             
             {/* ACTOR SOCIAL FIELDSET */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -1722,36 +1723,18 @@ export function ActoresSocialesPage() {
 
           {/* Tab lists under form */}
           <div style={{ background: "white", padding: "2rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", borderBottom: "2px solid var(--border)", marginBottom: "1rem" }}>
+            <div className="tab-buttons-bar">
               <button
                 type="button"
                 onClick={() => setActiveTab("registros")}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: activeTab === "registros" ? "3px solid #71639e" : "none",
-                  fontWeight: activeTab === "registros" ? "bold" : "normal",
-                  color: activeTab === "registros" ? "#71639e" : "var(--muted)",
-                  cursor: "pointer",
-                  fontSize: "1rem"
-                }}
+                className={`tab-button ${activeTab === "registros" ? "is-active" : "is-inactive"}`}
               >
                 Registros
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("manzanas")}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: activeTab === "manzanas" ? "3px solid #71639e" : "none",
-                  fontWeight: activeTab === "manzanas" ? "bold" : "normal",
-                  color: activeTab === "manzanas" ? "#71639e" : "var(--muted)",
-                  cursor: "pointer",
-                  fontSize: "1rem"
-                }}
+                className={`tab-button ${activeTab === "manzanas" ? "is-active" : "is-inactive"}`}
               >
                 Asignacion de manzanas
               </button>
@@ -1875,14 +1858,14 @@ export function ActoresSocialesPage() {
             </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxHeight: "500px", overflowY: "auto", paddingRight: "0.5rem" }}>
+          <div className="timeline-container">
             {timeline.map((item) => (
-              <div key={item.id} style={{ background: "white", padding: "1rem", borderRadius: "0.25rem", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", borderLeft: "4px solid #71639e" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem", fontSize: "0.85rem" }}>
+              <div key={item.id} className="timeline-item">
+                <div className="timeline-item-header">
                   <strong>{item.author}</strong>
-                  <span style={{ color: "var(--muted)" }}>{item.date}</span>
+                  <span className="timeline-item-time">{item.date}</span>
                 </div>
-                <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text)" }}>{item.text}</p>
+                <p className="timeline-item-text">{item.text}</p>
               </div>
             ))}
             {timeline.length === 0 && (
