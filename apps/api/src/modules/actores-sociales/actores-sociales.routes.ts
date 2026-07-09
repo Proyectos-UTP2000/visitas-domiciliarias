@@ -66,6 +66,21 @@ export function createActoresSocialesRouter(
     }
   });
 
+  router.get("/:id", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const record = await service.getById(req.params.id);
+      if (rol !== "ADMIN_GENERAL" && record.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este actor social" });
+        return;
+      }
+      res.json(record);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/", async (req, res, next) => {
     const parsed = actorSocialCreateSchema.safeParse(req.body);
     if (!parsed.success) {

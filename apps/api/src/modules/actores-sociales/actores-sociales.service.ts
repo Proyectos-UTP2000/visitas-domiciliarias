@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { HttpError } from "../../shared/http-error.js";
 import { hashPassword } from "../../shared/password.js";
 import type {
@@ -21,6 +22,13 @@ export class ActoresSocialesService {
       findEntidadById?(id: string): Promise<{ id: string } | null>;
       findEstablecimientoById?(id: string): Promise<{ id: string; grupoTrabajoId: string } | null>;
       findCentroPobladoById?(id: string): Promise<{ id: string; municipalidadId: string } | null>;
+    },
+    private readonly dependencies?: {
+      mailer?: {
+        sendActivationEmail(email: string, username: string, token: string): Promise<void>;
+      };
+      createResetToken?: (usuarioId: string, tokenHash: string, expiresAt: Date) => Promise<void>;
+      findUserByActorId?: (actorId: string) => Promise<{ id: string; username: string } | null>;
     }
   ) {}
 
@@ -210,8 +218,35 @@ export class ActoresSocialesService {
   }
 
   async setEstado(id: string, estado: EstadoActorSocial, observaciones?: string | null): Promise<ActorSocialRecord> {
-    await this.getById(id);
-    return this.repository.setEstado(id, estado, observaciones);
+    const existing = await this.getById(id);
+    const updated = await this.repository.setEstado(id, estado, observaciones);
+
+    if (existing.estado !== "APROBADO" && estado === "APROBADO") {
+      if (
+        this.dependencies?.mailer &&
+        this.dependencies?.createResetToken &&
+        this.dependencies?.findUserByActorId
+      ) {
+        const user = await this.dependencies.findUserByActorId(id);
+        if (user && updated.email) {
+          const rawToken = crypto.randomBytes(32).toString("hex");
+          const tokenHash = crypto
+            .createHash("sha256")
+            .update(rawToken)
+            .digest("hex");
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+          await this.dependencies.createResetToken(user.id, tokenHash, expiresAt);
+          await this.dependencies.mailer.sendActivationEmail(
+            updated.email,
+            user.username,
+            rawToken
+          );
+        }
+      }
+    }
+
+    return updated;
   }
 
   async archive(id: string): Promise<ActorSocialRecord> {

@@ -3,6 +3,7 @@ import { prisma } from "../../shared/prisma.js";
 import { PrismaActoresSocialesRepository } from "./actores-sociales.repository.js";
 import { createActoresSocialesRouter } from "./actores-sociales.routes.js";
 import { ActoresSocialesService } from "./actores-sociales.service.js";
+import { MailerService } from "../../shared/mailer.js";
 
 export function createDefaultActoresSocialesRouter() {
   const baseRepo = new PrismaActoresSocialesRepository(prisma);
@@ -46,8 +47,29 @@ export function createDefaultActoresSocialesRouter() {
     },
   });
 
+  const mailer = new MailerService();
+  const dependencies = {
+    mailer,
+    createResetToken: async (usuarioId: string, tokenHash: string, expiresAt: Date) => {
+      await prisma.passwordResetToken.create({
+        data: {
+          usuarioId,
+          tokenHash,
+          expiresAt,
+        },
+      });
+    },
+    findUserByActorId: async (actorId: string) => {
+      const actor = await prisma.actorSocial.findFirst({
+        where: { id: actorId },
+        select: { usuario: { select: { id: true, username: true } } },
+      });
+      return actor?.usuario || null;
+    },
+  };
+
   return createActoresSocialesRouter(
-    new ActoresSocialesService(repository),
+    new ActoresSocialesService(repository, dependencies),
     requireAuth()
   );
 }
