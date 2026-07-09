@@ -60,6 +60,7 @@ apps/api/generated/
 
 # Local planning artifacts
 /docs/superpowers/
+docs/
 
 # TypeScript incremental build info
 *.tsbuildinfo

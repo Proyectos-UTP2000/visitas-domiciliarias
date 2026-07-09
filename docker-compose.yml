@@ -3,16 +3,15 @@ services:
     image: postgres:17-alpine
     container_name: visitas_postgres
     restart: unless-stopped
+    network_mode: host
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,14 +20,13 @@ services:
     image: node:24-alpine
     container_name: visitas_api
     working_dir: /workspace
+    network_mode: host
     command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @visitas/api exec prisma migrate deploy && pnpm --filter @visitas/api db:seed && pnpm --filter @visitas/api dev"
     env_file:
       - .env
     environment:
       CI: "true"
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
-    ports:
-      - "${API_PORT}:4000"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=public"
     volumes:
       - .:/workspace
       - api_root_node_modules:/workspace/node_modules
@@ -53,13 +51,12 @@ services:
     image: node:24-alpine
     container_name: visitas_web
     working_dir: /workspace
+    network_mode: host
     command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @visitas/web dev --host 0.0.0.0"
     env_file:
       - .env
     environment:
       CI: "true"
-    ports:
-      - "5173:5173"
     volumes:
       - .:/workspace
       - web_root_node_modules:/workspace/node_modules
