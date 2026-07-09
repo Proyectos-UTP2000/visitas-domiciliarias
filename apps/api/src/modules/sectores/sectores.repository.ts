@@ -15,18 +15,21 @@ const sectorInclude = {
 export class PrismaSectoresRepository implements SectoresRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  list(): Promise<SectorRecord[]> {
+  list(municipalidadId?: string | null): Promise<SectorRecord[]> {
     return this.prisma.sector.findMany({
-      where: { archivado: false },
+      where: {
+        archivado: false,
+        ...(municipalidadId ? { municipalidadId } : {}),
+      },
       include: sectorInclude,
       orderBy: [{ distrito: "asc" }, { nombreSector: "asc" }],
     });
   }
 
-  findById(id: string): Promise<{ id: string } | null> {
+  findById(id: string): Promise<{ id: string; municipalidadId: string } | null> {
     return this.prisma.sector.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, municipalidadId: true },
     });
   }
 

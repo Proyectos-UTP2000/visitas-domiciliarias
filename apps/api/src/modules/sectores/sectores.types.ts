@@ -36,8 +36,8 @@ export type SectorCreateData = SectorPayload & {
 };
 
 export type SectoresRepository = {
-  list(): Promise<SectorRecord[]>;
-  findById(id: string): Promise<{ id: string } | null>;
+  list(municipalidadId?: string | null): Promise<SectorRecord[]>;
+  findById(id: string): Promise<{ id: string; municipalidadId: string } | null>;
   findByMunicipalidadAndCodigo(
     municipalidadId: string,
     codigo: string,
@@ -47,3 +47,4 @@ export type SectoresRepository = {
   setActivo(id: string, activo: boolean): Promise<SectorRecord>;
   archive(id: string): Promise<SectorRecord>;
 };
+

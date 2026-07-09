@@ -214,4 +214,33 @@ describe("SectoresService", () => {
     expect(result).toMatchObject({ archivado: true });
     expect(archive).toHaveBeenCalledWith("sector-1");
   });
+
+  it("lists sectors filtered by municipalidadId", async () => {
+    const list = vi.fn().mockResolvedValue([]);
+    const service = new SectoresService(createRepository({ list }));
+
+    await service.list("mun-1");
+    expect(list).toHaveBeenCalledWith("mun-1");
+  });
+
+  it("retrieves a sector by id using getById", async () => {
+    const sector = { id: "sector-1", municipalidadId: "mun-1" };
+    const findById = vi.fn().mockResolvedValue(sector);
+    const service = new SectoresService(createRepository({ findById }));
+
+    const result = await service.getById("sector-1");
+    expect(result).toEqual(sector);
+    expect(findById).toHaveBeenCalledWith("sector-1");
+  });
+
+  it("throws a 404 error if sector is not found in getById", async () => {
+    const service = new SectoresService(
+      createRepository({ findById: vi.fn().mockResolvedValue(null) })
+    );
+
+    await expect(service.getById("sector-nonexistent")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Sector no encontrado",
+    });
+  });
 });

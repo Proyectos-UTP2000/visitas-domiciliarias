@@ -13,8 +13,8 @@ export class SectoresService {
     }
   ) {}
 
-  list(): Promise<SectorRecord[]> {
-    return this.repository.list();
+  list(municipalidadId?: string | null): Promise<SectorRecord[]> {
+    return this.repository.list(municipalidadId);
   }
 
   async create(input: SectorPayload): Promise<SectorRecord> {
@@ -72,10 +72,16 @@ export class SectoresService {
     return this.repository.archive(id);
   }
 
-  private async ensureExists(id: string): Promise<void> {
-    if (!(await this.repository.findById(id))) {
+  async getById(id: string) {
+    const record = await this.repository.findById(id);
+    if (!record) {
       throw new HttpError(404, "Sector no encontrado");
     }
+    return record;
+  }
+
+  private async ensureExists(id: string): Promise<void> {
+    await this.getById(id);
   }
 
   private ensureTipoMatchesDetail(input: SectorPayload): void {

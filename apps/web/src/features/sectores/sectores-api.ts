@@ -53,8 +53,9 @@ export function archivarCentroPoblado(id: string): Promise<CentroPobladoRecord> 
   });
 }
 
-export function listSectores(): Promise<SectorRecord[]> {
-  return apiRequest<SectorRecord[]>(BASE_ENDPOINT);
+export function listSectores(municipalidadId?: string | null): Promise<SectorRecord[]> {
+  const url = municipalidadId ? `${BASE_ENDPOINT}?municipalidadId=${municipalidadId}` : BASE_ENDPOINT;
+  return apiRequest<SectorRecord[]>(url);
 }
 
 export function createSector(form: SectorFormState): Promise<SectorRecord> {
