@@ -6,6 +6,11 @@ import { seedTiposActorSocial } from "./tipos-actor-social.loader.js";
 import { seedMunicipalidades } from "./municipalidades.loader.js";
 import { seedEntidades } from "./entidades.loader.js";
 import { seedCargosMiembroGrupo } from "./cargos-miembro-grupo.loader.js";
+import { seedCentrosPoblados } from "./centros-poblados.loader.js";
+import { seedUsuariosMunicipales } from "./usuarios-municipales.loader.js";
+import { seedSectores } from "./sectores.loader.js";
+import { seedGruposTrabajo } from "./grupos-trabajo.loader.js";
+import { seedActoresSociales } from "./actores-sociales.loader.js";
 
 loadEnv({ path: "../../.env" });
 loadEnv();
@@ -43,6 +48,48 @@ async function main() {
 
   const cargosCreated = await seedCargosMiembroGrupo(prisma.cargoMiembroGrupo);
   console.log(`DataLoader: ${cargosCreated} cargos de miembro de grupo creados.`);
+
+  const cpsCreated = await seedCentrosPoblados({
+    municipalidades: prisma.municipalidad,
+    centrosPoblados: prisma.centroPoblado,
+  });
+  console.log(`DataLoader: ${cpsCreated} centros poblados creados.`);
+
+  const usersMuniCreated = await seedUsuariosMunicipales({
+    users: prisma.usuario,
+    municipalidades: prisma.municipalidad,
+    hashPassword,
+  });
+  console.log(`DataLoader: ${usersMuniCreated} usuarios municipales creados.`);
+
+  const sectoresCreated = await seedSectores({
+    sectores: prisma.sector,
+    municipalidades: prisma.municipalidad,
+    centrosPoblados: prisma.centroPoblado,
+  });
+  console.log(`DataLoader: ${sectoresCreated} sectores creados.`);
+
+  const gruposCreated = await seedGruposTrabajo({
+    gruposTrabajo: prisma.grupoTrabajo,
+    municipalidades: prisma.municipalidad,
+    cargosMiembroGrupo: prisma.cargoMiembroGrupo,
+    miembrosGrupo: prisma.miembroGrupo,
+    grupoEstablecimientos: prisma.grupoEstablecimiento,
+  });
+  console.log(`DataLoader: ${gruposCreated} grupos de trabajo creados.`);
+
+  const actoresCreated = await seedActoresSociales({
+    users: prisma.usuario,
+    actoresSociales: prisma.actorSocial,
+    municipalidades: prisma.municipalidad,
+    tiposActorSocial: prisma.tipoActorSocial,
+    gruposTrabajo: prisma.grupoTrabajo,
+    grupoEstablecimientos: prisma.grupoEstablecimiento,
+    centrosPoblados: prisma.centroPoblado,
+    sectores: prisma.sector,
+    hashPassword,
+  });
+  console.log(`DataLoader: ${actoresCreated} actores sociales creados.`);
 }
 
 main()

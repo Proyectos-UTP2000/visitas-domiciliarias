@@ -18,6 +18,16 @@ export const DEFAULT_MUNICIPALIDADES = [
     nombre: "MUNICIPALIDAD METROPOLITANA DE LIMA",
     tipo: "PROVINCIAL" as const,
     prioridad: 2,
+  },
+  {
+    ubigeo: "140106",
+    departamento: "LAMBAYEQUE",
+    provincia: "CHICLAYO",
+    distrito: "LA VICTORIA",
+    codigo: "VIC",
+    nombre: "MUNICIPALIDAD DISTRITAL DE LA VICTORIA",
+    tipo: "DISTRITAL" as const,
+    prioridad: 3,
   }
 ];
 

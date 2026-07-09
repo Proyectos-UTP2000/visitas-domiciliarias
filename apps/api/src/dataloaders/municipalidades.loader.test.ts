@@ -8,9 +8,9 @@ describe("seedMunicipalidades", () => {
 
     const createdCount = await seedMunicipalidades({ findUnique, create } as any);
 
-    expect(createdCount).toBe(2);
-    expect(findUnique).toHaveBeenCalledTimes(2);
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(createdCount).toBe(3);
+    expect(findUnique).toHaveBeenCalledTimes(3);
+    expect(create).toHaveBeenCalledTimes(3);
     expect(create).toHaveBeenNthCalledWith(1, {
       data: {
         ubigeo: "060806",
@@ -38,9 +38,9 @@ describe("seedMunicipalidades", () => {
 
     const createdCount = await seedMunicipalidades({ findUnique, create } as any);
 
-    expect(createdCount).toBe(1); // Only Lima should be created
-    expect(findUnique).toHaveBeenCalledTimes(2);
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(createdCount).toBe(2); // Lima and La Victoria should be created
+    expect(findUnique).toHaveBeenCalledTimes(3);
+    expect(create).toHaveBeenCalledTimes(2);
     expect(create).toHaveBeenCalledWith({
       data: {
         ubigeo: "150101",
