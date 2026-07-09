@@ -40,6 +40,7 @@ export type ActorSocialRecord = {
   sectoresACorregir?: { id: string; nombreSector: string; centroPoblado?: { nombre: string } | null }[];
   centroPoblado?: { id: string; nombre: string; tipo: string } | null;
   archivos?: ActorSocialArchivo[];
+  deletedAt?: string | null;
 };
 
 export type ActorSocialFormState = {

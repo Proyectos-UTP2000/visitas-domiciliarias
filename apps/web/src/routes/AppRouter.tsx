@@ -22,6 +22,7 @@ import { CargosMiembroPage } from "../features/cargos-miembro-grupo/pages/Cargos
 import { GruposPage } from "../features/grupos-trabajo/pages/GruposPage";
 import { GrupoDetailPage } from "../features/grupos-trabajo/pages/GrupoDetailPage";
 import { ActoresSocialesPage } from "../features/actores-sociales/pages/ActoresSocialesPage";
+import { ActorSocialDetailPage } from "../features/actores-sociales/pages/ActorSocialDetailPage";
 import { SectoresUrbanoPage } from "../features/sectores/pages/SectoresUrbanoPage";
 import { SectoresRuralPage } from "../features/sectores/pages/SectoresRuralPage";
 import { CentrosPobladosPage } from "../features/sectores/pages/CentrosPobladosPage";
@@ -76,6 +77,7 @@ export function AppRouter() {
         <Route element={<LoginPage />} path="/login" />
         <Route element={<ForgotPasswordPage />} path="/forgot-password" />
         <Route element={<ResetPasswordPage />} path="/reset-password" />
+        <Route element={<ResetPasswordPage />} path="/activar-cuenta" />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
@@ -91,6 +93,8 @@ export function AppRouter() {
             <Route element={<SectoresUrbanoPage />} path="/sectores/urbano" />
             <Route element={<SectoresRuralPage />} path="/sectores/rural" />
             <Route element={<ActoresSocialesPage />} path="/actores-sociales" />
+            <Route element={<ActorSocialDetailPage />} path="/actores-sociales/nuevo" />
+            <Route element={<ActorSocialDetailPage />} path="/actores-sociales/:id" />
             <Route element={<ComingSoonPage />} path="/ninos/visitas" />
             <Route element={<ComingSoonPage />} path="/reportes/actividad" />
             <Route element={<ComingSoonPage />} path="/reportes/operativos" />

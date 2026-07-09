@@ -10,6 +10,10 @@ export function listActores(municipalidadId?: string | null): Promise<ActorSocia
   return apiRequest<ActorSocialRecord[]>(url);
 }
 
+export function getActorById(id: string): Promise<ActorSocialRecord> {
+  return apiRequest<ActorSocialRecord>(`${BASE_ENDPOINT}/${id}`);
+}
+
 export function createActor(payload: ActorSocialFormState): Promise<ActorSocialRecord> {
   return apiRequest<ActorSocialRecord>(BASE_ENDPOINT, {
     method: "POST",
