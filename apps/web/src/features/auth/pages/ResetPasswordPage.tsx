@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useLocation } from "react-router-dom";
 import { apiRequest, ApiError } from "../../../shared/api";
 import { getPasswordRules, isStrongPassword } from "../password-strength";
 
@@ -15,6 +15,28 @@ export function ResetPasswordPage() {
   const rules = useMemo(() => getPasswordRules(password), [password]);
   const canSubmit =
     token.length > 0 && isStrongPassword(password) && !isSubmitting;
+
+  const location = useLocation();
+  const isActivateMode = location.pathname.includes("activar-cuenta");
+
+  const texts = {
+    eyebrow: isActivateMode ? "Activación" : "Nueva clave",
+    title: isActivateMode ? "Activar tu cuenta" : "Crear nueva contraseña",
+    subtitle: isActivateMode
+      ? "Crea tu contraseña para activar tu cuenta de actor social."
+      : "Usa una contraseña fuerte para proteger tu cuenta.",
+    invalidTokenMsg: isActivateMode
+      ? "El enlace no contiene un token de activación válido. Contacta con tu administrador para solicitar un nuevo enlace."
+      : "El enlace no contiene un token válido. Solicita un nuevo enlace de recuperación.",
+    submitBtn: isActivateMode ? "Activar cuenta" : "Restablecer contraseña",
+    submittingBtn: isActivateMode ? "Activando..." : "Guardando...",
+    successMsg: isActivateMode
+      ? "¡Tu cuenta ha sido activada con éxito! Ya puedes iniciar sesión."
+      : null,
+    errorDefaultMsg: isActivateMode
+      ? "No se pudo activar la cuenta."
+      : "No se pudo restablecer la contraseña.",
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,13 +57,13 @@ export function ResetPasswordPage() {
           body: { token, password },
         },
       );
-      setMessage(response.message);
+      setMessage(texts.successMsg || response.message);
       setPassword("");
     } catch (requestError) {
       setError(
         requestError instanceof ApiError
           ? requestError.message
-          : "No se pudo restablecer la contraseña.",
+          : texts.errorDefaultMsg,
       );
     } finally {
       setIsSubmitting(false);
@@ -52,15 +74,14 @@ export function ResetPasswordPage() {
     <main className="auth-layout auth-layout-centered">
       <section className="auth-card" aria-labelledby="reset-password-title">
         <div className="section-heading">
-          <p className="eyebrow">Nueva clave</p>
-          <h1 id="reset-password-title">Crear nueva contraseña</h1>
-          <p>Usa una contraseña fuerte para proteger tu cuenta.</p>
+          <p className="eyebrow">{texts.eyebrow}</p>
+          <h1 id="reset-password-title">{texts.title}</h1>
+          <p>{texts.subtitle}</p>
         </div>
 
         {!token && (
           <p className="alert alert-error">
-            El enlace no contiene un token válido. Solicita un nuevo enlace de
-            recuperación.
+            {texts.invalidTokenMsg}
           </p>
         )}
 
@@ -96,7 +117,7 @@ export function ResetPasswordPage() {
             disabled={!canSubmit}
             type="submit"
           >
-            {isSubmitting ? "Guardando..." : "Restablecer contraseña"}
+            {isSubmitting ? texts.submittingBtn : texts.submitBtn}
           </button>
         </form>
 
