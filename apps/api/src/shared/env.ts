@@ -15,6 +15,8 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
   APP_WEB_URL: z.string().url(),
+  FRONTEND_URL: z.string().url(),
+  BACKEND_URL: z.string().url().optional(),
   GMAIL_USER: z.string().optional(),
   GMAIL_CLIENT_ID: z.string().optional(),
   GMAIL_CLIENT_SECRET: z.string().optional(),
