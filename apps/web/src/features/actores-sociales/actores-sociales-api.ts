@@ -1,5 +1,7 @@
 import { apiRequest } from "../../shared/api";
-import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial } from "./actores-sociales-types";
+import { getAccessToken } from "../auth/auth-storage";
+import { API_BASE_URL } from "../../shared/config";
+import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial, ActorSocialArchivo } from "./actores-sociales-types";
 
 const BASE_ENDPOINT = "/actores-sociales";
 
@@ -45,10 +47,10 @@ export function setActorActivo(id: string, activo: boolean): Promise<ActorSocial
   });
 }
 
-export function setActorEstado(id: string, estado: EstadoActorSocial): Promise<ActorSocialRecord> {
+export function setActorEstado(id: string, estado: EstadoActorSocial, observaciones?: string | null): Promise<ActorSocialRecord> {
   return apiRequest<ActorSocialRecord>(`${BASE_ENDPOINT}/${id}/estado`, {
     method: "PATCH",
-    body: { estado },
+    body: { estado, observaciones },
   });
 }
 
@@ -66,4 +68,61 @@ export function deleteActor(
     method: "DELETE",
     body: { motivoEliminacion },
   });
+}
+
+export function listActorArchivos(actorId: string): Promise<ActorSocialArchivo[]> {
+  return apiRequest<ActorSocialArchivo[]>(`${BASE_ENDPOINT}/${actorId}/archivos`);
+}
+
+export async function uploadActorArchivo(actorId: string, file: File): Promise<ActorSocialArchivo> {
+  const token = getAccessToken();
+  const url = `${API_BASE_URL}${BASE_ENDPOINT}/${actorId}/archivos`;
+  const formData = new FormData();
+  formData.append("archivo", file);
+
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message = payload?.message || "No se pudo subir el archivo";
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<ActorSocialArchivo>;
+}
+
+export function deleteActorArchivo(actorId: string, archivoId: string): Promise<ActorSocialArchivo> {
+  return apiRequest<ActorSocialArchivo>(`${BASE_ENDPOINT}/${actorId}/archivos/${archivoId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function downloadActorArchivo(archivoId: string, nombreArchivo: string): Promise<void> {
+  const token = getAccessToken();
+  const url = `${API_BASE_URL}${BASE_ENDPOINT}/archivos/${archivoId}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: token ? { "authorization": `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new Error("No se pudo descargar el archivo");
+  }
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
 }

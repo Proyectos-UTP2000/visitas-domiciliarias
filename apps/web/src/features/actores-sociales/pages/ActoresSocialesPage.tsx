@@ -20,8 +20,12 @@ import {
   setActorEstado,
   archivarActor,
   deleteActor,
+  listActorArchivos,
+  uploadActorArchivo,
+  deleteActorArchivo,
+  downloadActorArchivo,
 } from "../actores-sociales-api";
-import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial } from "../actores-sociales-types";
+import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial, ActorSocialArchivo } from "../actores-sociales-types";
 import { emptyActorSocialForm, filterActores, toActorSocialForm } from "../actores-sociales-utils";
 import "../actores-sociales.css";
 
@@ -85,6 +89,12 @@ export function ActoresSocialesPage() {
   const [isSearchingDni, setIsSearchingDni] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  
+  // Attachments and review status states
+  const [archivos, setArchivos] = useState<ActorSocialArchivo[]>([]);
+  const [isObserveModalOpen, setIsObserveModalOpen] = useState(false);
+  const [statusComment, setStatusComment] = useState("");
+  const [isSubmittingEstado, setIsSubmittingEstado] = useState(false);
 
   const todayStr = useMemo(() => {
     const localToday = new Date();
@@ -130,7 +140,7 @@ export function ActoresSocialesPage() {
   const [actorToDelete, setActorToDelete] = useState<string | null>(null);
 
   // Detail/Create Page States
-  const [activeTab, setActiveTab] = useState<"registros" | "manzanas">("registros");
+  const [activeTab, setActiveTab] = useState<"registros" | "manzanas" | "otros_docs">("registros");
   const [chatInput, setChatInput] = useState("");
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [manzanasPage, setManzanasPage] = useState(0);
@@ -301,7 +311,7 @@ export function ActoresSocialesPage() {
 
   const gruposOptions = useMemo(() => {
     return grupos
-      .filter((g) => g.municipalidadId === form.municipalidadId && g.activo && !g.archivado)
+      .filter((g) => g.municipalidadId === form.municipalidadId && g.activo && !g.archivado && g.estado === "APROBADO")
       .map((g) => ({
         id: g.id,
         name: g.nombreGrupo,
@@ -514,6 +524,7 @@ export function ActoresSocialesPage() {
     setError(null);
     setMessage(null);
     setViewingActor(null);
+    setArchivos([]);
     setShowValidationErrors(false);
     const initialPass = generateSecurePassword();
     setForm({
@@ -536,6 +547,7 @@ export function ActoresSocialesPage() {
     setError(null);
     setMessage(null);
     setViewingActor(actor);
+    setArchivos(actor.archivos || []);
     setForm(toActorSocialForm(actor));
     setShowValidationErrors(false);
     setTimeline([
@@ -547,15 +559,14 @@ export function ActoresSocialesPage() {
       }
     ]);
     setManzanasPage(0);
-    setActiveTab("registros");
+    setActiveTab(actor.estado === "BORRADOR" ? "registros" : actor.estado === "REGISTRADO" || actor.estado === "VALIDADO" ? "otros_docs" : "registros");
     setViewMode("detail");
   }
 
-  async function handleCreateSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setShowValidationErrors(true);
+  async function saveActorData(advanceState: boolean) {
     setError(null);
     setMessage(null);
+    setShowValidationErrors(true);
 
     const resolvedMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : form.municipalidadId;
     const isMuniInvalid = user?.rol === "ADMIN_GENERAL" && !form.municipalidadId;
@@ -566,7 +577,6 @@ export function ActoresSocialesPage() {
     const isTipoInvalid = !form.tipoActorSocialId;
     const isGrupoInvalid = !form.grupoTrabajoId;
     const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
-    const isFechaNacInvalid = !form.fechaNac || form.fechaNac >= todayStr;
     const isDireccionInvalid = !form.direccion.trim();
     const isEmailInvalid = !form.email.trim() || !form.email.includes("@");
     const isIdiomaInvalid = !form.idiomaOrigen;
@@ -579,7 +589,9 @@ export function ActoresSocialesPage() {
     if (isNombresInvalid) missingFields.push("Nombres (consulte DNI)");
     if (isApellidosInvalid) missingFields.push("Apellidos (consulte DNI)");
     if (isDireccionInvalid) missingFields.push("Dirección");
-    if (isFechaNacInvalid) missingFields.push("Fecha de Nacimiento (debe ser anterior a la actual)");
+    if (viewMode === "create" && (!form.fechaNac || form.fechaNac >= todayStr)) {
+      missingFields.push("Fecha de Nacimiento (debe ser anterior a la actual)");
+    }
     if (isEmailInvalid) missingFields.push("Correo Electrónico válido");
     if (isCelularInvalid) missingFields.push("Celular (debe tener exactamente 9 dígitos)");
     if (isIdiomaInvalid) missingFields.push("Idioma de Origen");
@@ -594,93 +606,83 @@ export function ActoresSocialesPage() {
 
     setIsSaving(true);
     try {
-      const payload = {
-        ...form,
-        entidadId: form.entidadId || null,
-        grupoEstablecimientoId: form.grupoEstablecimientoId || null,
-        centroPobladoId: form.centroPobladoId || null,
-      } as any;
+      if (viewMode === "create") {
+        const payload = {
+          ...form,
+          entidadId: form.entidadId || null,
+          grupoEstablecimientoId: form.grupoEstablecimientoId || null,
+          centroPobladoId: form.centroPobladoId || null,
+        } as any;
+        
+        let created = await createActor(payload);
+        if (advanceState) {
+          created = await setActorEstado(created.id, "REGISTRADO");
+        }
+        setActores((curr) => [created, ...curr]);
+        setViewingActor(created);
+        setForm(toActorSocialForm(created));
+        setViewMode("detail");
+        setArchivos(created.archivos || []);
+        setActiveTab(advanceState ? "otros_docs" : "registros");
+        setMessage(advanceState ? "Actor social registrado con éxito." : "Borrador de actor social guardado con éxito.");
+      } else if (viewMode === "detail" && viewingActor) {
+        const payload = {
+          tipoActorSocialId: form.tipoActorSocialId,
+          grupoTrabajoId: form.grupoTrabajoId,
+          grupoEstablecimientoId: form.grupoEstablecimientoId || null,
+          entidadId: form.entidadId || null,
+          email: form.email.trim(),
+          celular: form.celular.trim(),
+          direccion: form.direccion.trim(),
+          centroPobladoId: form.centroPobladoId || null,
+          gradoInstruccion: form.gradoInstruccion,
+          inactivadoPermanentemente: form.inactivadoPermanentemente,
+          sectoresIds: form.sectoresIds,
+          sectoresACorregirIds: form.sectoresACorregirIds,
+        };
 
-      const created = await createActor(payload);
-      setActores((curr) => [created, ...curr]);
-      
-      // Go to detail mode
-      setViewingActor(created);
-      setForm(toActorSocialForm(created));
-      setViewMode("detail");
-      setMessage("Actor social registrado con éxito.");
+        let updated = await updateActor(viewingActor.id, payload);
+        if (advanceState) {
+          const nextState = viewingActor.estado === "BORRADOR" ? "REGISTRADO" : "VALIDADO";
+          updated = await setActorEstado(viewingActor.id, nextState);
+          appendTimeline(`Sistema: Estado de registro cambiado a ${nextState}`);
+          setMessage(`Actor social actualizado y avanzado a estado ${nextState === "VALIDADO" ? "VALIDADO" : "REGISTRADO"} con éxito.`);
+        } else {
+          setMessage("Actor social actualizado con éxito.");
+        }
+        setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
+        setViewingActor(updated);
+        setForm(toActorSocialForm(updated));
+        setArchivos(updated.archivos || []);
+        if (advanceState) {
+          setActiveTab("otros_docs");
+        }
+      }
     } catch (err: any) {
-      setError(err.message || "Error al registrar el actor social.");
+      setError(err.message || "Error al guardar el actor social.");
     } finally {
       setIsSaving(false);
     }
   }
 
-  async function handleUpdateSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!viewingActor) return;
-    setShowValidationErrors(true);
+  async function handleTransitionEstado(actor: ActorSocialRecord, nextEstado: EstadoActorSocial, obsComment?: string) {
     setError(null);
     setMessage(null);
-
-    const isCelularInvalid = !/^\d{9}$/.test(form.celular);
-    const isTipoInvalid = !form.tipoActorSocialId;
-    const isGrupoInvalid = !form.grupoTrabajoId;
-    const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
-    const isDireccionInvalid = !form.direccion.trim();
-    const isEmailInvalid = !form.email.trim() || !form.email.includes("@");
-    const isGradoInvalid = !form.gradoInstruccion;
-
-    const missingFields: string[] = [];
-    if (isTipoInvalid) missingFields.push("Tipo Actor Social");
-    if (isDireccionInvalid) missingFields.push("Dirección");
-    if (isEmailInvalid) missingFields.push("Correo Electrónico válido");
-    if (isCelularInvalid) missingFields.push("Celular (debe tener exactamente 9 dígitos)");
-    if (isGradoInvalid) missingFields.push("Grado de Instrucción");
-    if (isGrupoInvalid) missingFields.push("Grupo de Trabajo");
-    if (isEstablecimientoInvalid) missingFields.push("Establecimiento de Salud");
-
-    if (missingFields.length > 0) {
-      setError(`Por favor, complete todos los campos obligatorios marcados con * y verifique que sean válidos. Campos incorrectos o faltantes: ${missingFields.join(", ")}.`);
-      return;
-    }
-
-    setIsSaving(true);
+    setIsSubmittingEstado(true);
     try {
-      const payload = {
-        tipoActorSocialId: form.tipoActorSocialId,
-        grupoTrabajoId: form.grupoTrabajoId,
-        grupoEstablecimientoId: form.grupoEstablecimientoId || null,
-        entidadId: form.entidadId || null,
-        email: form.email.trim(),
-        celular: form.celular.trim(),
-        direccion: form.direccion.trim(),
-        centroPobladoId: form.centroPobladoId || null,
-        gradoInstruccion: form.gradoInstruccion,
-        inactivadoPermanentemente: form.inactivadoPermanentemente,
-        sectoresIds: form.sectoresIds,
-        sectoresACorregirIds: form.sectoresACorregirIds,
-      };
-
-      let updated = await updateActor(viewingActor.id, payload);
-      let stateChanged = false;
-      if (viewingActor.estado === "BORRADOR") {
-        updated = await setActorEstado(viewingActor.id, "REGISTRADO");
-        stateChanged = true;
-      }
+      const updated = await setActorEstado(actor.id, nextEstado, obsComment || null);
       setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
-      setViewingActor(updated);
       setForm(toActorSocialForm(updated));
-      if (stateChanged) {
-        appendTimeline("Sistema: Estado de registro cambiado a REGISTRADO");
-        setMessage("Actor social actualizado y registrado con éxito.");
-      } else {
-        setMessage("Actor social actualizado con éxito.");
-      }
+      setViewingActor(updated);
+      setArchivos(updated.archivos || []);
+      appendTimeline(`Sistema: Estado de registro cambiado a ${nextEstado}${obsComment ? ` (Observación: ${obsComment})` : ""}`);
+      setMessage(`Estado del actor social actualizado a ${nextEstado === "VALIDADO" ? "VALIDADO" : nextEstado} con éxito.`);
+      setIsObserveModalOpen(false);
+      setStatusComment("");
     } catch (err: any) {
-      setError(err.message || "Error al actualizar el actor social.");
+      setError(err.message || "Error al cambiar el estado de registro.");
     } finally {
-      setIsSaving(false);
+      setIsSubmittingEstado(false);
     }
   }
 
@@ -702,22 +704,7 @@ export function ActoresSocialesPage() {
     }
   }
 
-  async function handleTransitionEstado(actor: ActorSocialRecord, nextEstado: EstadoActorSocial) {
-    setError(null);
-    setMessage(null);
-    try {
-      const updated = await setActorEstado(actor.id, nextEstado);
-      setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
-      setForm((curr) => ({ ...curr, estado: nextEstado }));
-      if (viewingActor?.id === actor.id) {
-        setViewingActor(updated);
-      }
-      appendTimeline(`Sistema: Estado de registro cambiado a ${nextEstado}`);
-      setMessage(`Estado del actor social actualizado a ${nextEstado}.`);
-    } catch (err: any) {
-      setError(err.message || "Error al cambiar el estado de registro.");
-    }
-  }
+
 
   async function handleArchivar(actor: ActorSocialRecord) {
     setError(null);
@@ -843,6 +830,7 @@ export function ActoresSocialesPage() {
     if (type === "grupo") {
       const filtered = grupos.filter(
         (g) =>
+          g.estado === "APROBADO" &&
           g.municipalidadId === form.municipalidadId &&
           (g.nombreGrupo.toLowerCase().includes(q) ||
             g.nombreRepresentante.toLowerCase().includes(q) ||
@@ -963,7 +951,7 @@ export function ActoresSocialesPage() {
         )}
         <td>
           <span className={`status-pill is-active`} style={{
-            backgroundColor: a.estado === "APROBADO" ? "#2e7d32" : a.estado === "VALIDO" ? "#0288d1" : "#e65100",
+            backgroundColor: a.estado === "APROBADO" ? "#2e7d32" : a.estado === "VALIDADO" ? "#0288d1" : "#e65100",
             color: "white"
           }}>{a.estado}</span>
         </td>
@@ -1303,27 +1291,26 @@ export function ActoresSocialesPage() {
   }
 
   // Form / Detail view
-  const currentStepIndex = ["BORRADOR", "REGISTRADO", "VALIDO", "APROBADO"].indexOf(form.estado || "BORRADOR");
+  const currentStepIndex = ["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"].indexOf(form.estado || "BORRADOR");
 
   return (
     <div className="actores-detail-container">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "1rem", marginBottom: "2rem" }}>
+      <div className="admin-page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
         
         {/* Detail/Create Top Left controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <button
             className="admin-button is-ghost"
-            onClick={() => handleAddClick()}
-            style={{ backgroundColor: "#f5f5f5", color: "#333", border: "1px solid #ccc" }}
+            onClick={() => setViewMode("list")}
             type="button"
           >
-            Nuevo
+            Volver al listado
           </button>
           
-          <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem", marginLeft: "0.5rem" }}>
             {viewMode === "create" 
-              ? "Registro de Actores Sociales / Nuevo" 
-              : `Registro de Actores Sociales / [${viewingActor?.dni}] ${viewingActor?.apellidos} ${viewingActor?.nombres}`}
+              ? "Nuevo Actor Social" 
+              : `[${viewingActor?.dni}] ${viewingActor?.apellidos} ${viewingActor?.nombres}`}
             
             {viewMode === "detail" && viewingActor && (
               <div style={{ position: "relative", display: "inline-block" }}>
@@ -1358,57 +1345,26 @@ export function ActoresSocialesPage() {
               </div>
             )}
           </span>
-          
-          <div style={{ display: "flex", gap: "0.75rem", marginLeft: "1rem" }}>
-            <button
-              className="admin-button is-ghost"
-              onClick={() => setViewMode("list")}
-              type="button"
-            >
-              Cancelar
-            </button>
-            <button
-              className="admin-button is-primary"
-              onClick={viewMode === "create" ? handleCreateSubmit : handleUpdateSubmit}
-              disabled={isSaving}
-            >
-              {isSaving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
         </div>
 
         {/* State Flow Bar (Top Right) */}
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div className="stepper-bar" style={{ margin: 0, width: "auto" }}>
           {["Borrador", "Registrado", "Validado", "Aprobado"].map((step, idx) => {
-            const stepEnum = step.toUpperCase() === "VALIDADO" ? "VALIDO" : step.toUpperCase();
-            const isActive = idx === currentStepIndex;
             const isCompleted = idx < currentStepIndex;
+            const isActive = idx === currentStepIndex;
             return (
-              <div
-                key={step}
-                onClick={() => {
-                  if (viewMode === "detail" && viewingActor) {
-                    setConfirmConfig({
-                      isOpen: true,
-                      title: "Cambiar Estado",
-                      message: `¿Seguro que deseas cambiar el estado a ${stepEnum}?`,
-                      onConfirm: () => handleTransitionEstado(viewingActor, stepEnum as EstadoActorSocial),
-                    });
-                  }
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: isActive ? "#71639e" : isCompleted ? "#f3e8ff" : "transparent",
-                  color: isActive ? "white" : "var(--text)",
-                  border: "1px solid #ccc",
-                  borderLeft: idx > 0 ? "none" : "1px solid #ccc",
-                  cursor: viewMode === "detail" ? "pointer" : "default",
-                  borderRadius: idx === 0 ? "0.25rem 0 0 0.25rem" : idx === 3 ? "0 0.25rem 0.25rem 0" : "0",
-                  fontSize: "0.9rem",
-                  fontWeight: isActive ? "bold" : "normal"
-                }}
-              >
-                {step}
+              <div key={step} className="stepper-step" style={{ flex: idx === 3 ? "none" : 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <div className={`stepper-step-circle ${isCompleted || isActive ? (isActive ? "is-active" : "is-completed") : "is-inactive"}`}>
+                    {idx + 1}
+                  </div>
+                  <span className={`stepper-step-label ${isActive ? "is-active" : "is-inactive"}`}>
+                    {step}
+                  </span>
+                </div>
+                {idx < 3 && (
+                  <div className={`stepper-line ${isCompleted ? "is-completed" : "is-inactive"}`} />
+                )}
               </div>
             );
           })}
@@ -1422,16 +1378,24 @@ export function ActoresSocialesPage() {
       )}
       {message && (
         <div className="admin-alert is-success" style={{ marginBottom: "1.25rem" }}>
-          {message}
+            {message}
         </div>
       )}
-
+      
       {/* Main detail page split layout */}
       <div className="actores-split-layout">
         
         {/* Left Side: General Form Panels */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
           
+          {/* Observations alert */}
+          {viewingActor?.observaciones && (form.estado === "REGISTRADO" || form.estado === "VALIDADO") && (
+            <div className="observations-alert-box" style={{ margin: 0 }}>
+              <strong>Observaciones del Supervisor:</strong>
+              <p style={{ margin: "0.25rem 0 0", whiteSpace: "pre-wrap" }}>{viewingActor.observaciones}</p>
+            </div>
+          )}
+
           <div className="actores-form-panel">
             
             {/* ACTOR SOCIAL FIELDSET */}
@@ -1445,6 +1409,7 @@ export function ActoresSocialesPage() {
                     value={form.tipoActorSocialId}
                     onChange={(e) => setForm((curr) => ({ ...curr, tipoActorSocialId: e.target.value }))}
                     required
+                    disabled={form.estado !== "BORRADOR"}
                   >
                     <option value="">Selecciona tipo...</option>
                     {tiposActor.map((t) => (
@@ -1471,7 +1436,7 @@ export function ActoresSocialesPage() {
                         value={form.dni}
                         onChange={(e) => setForm((curr) => ({ ...curr, dni: e.target.value }))}
                         placeholder="DNI de 8 dígitos"
-                        disabled={viewMode === "detail"}
+                        disabled={viewMode === "detail" || form.estado !== "BORRADOR"}
                       />
                     </label>
                     {viewMode === "create" && (
@@ -1549,7 +1514,7 @@ export function ActoresSocialesPage() {
                     value={form.fechaNac}
                     max={yesterdayStr}
                     onChange={(e) => setForm((curr) => ({ ...curr, fechaNac: e.target.value }))}
-                    disabled={viewMode === "detail"}
+                    disabled={viewMode === "detail" || form.estado !== "BORRADOR"}
                   />
                   {showValidationErrors && (!form.fechaNac || form.fechaNac >= todayStr) && (
                     <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
@@ -1667,6 +1632,7 @@ export function ActoresSocialesPage() {
                     <select
                       value={form.entidadId}
                       onChange={(e) => setForm((curr) => ({ ...curr, entidadId: e.target.value }))}
+                      disabled={form.estado !== "BORRADOR"}
                     >
                       <option value="">Ninguno / Sin adscripción</option>
                       {entidades.map((e) => (
@@ -1696,6 +1662,7 @@ export function ActoresSocialesPage() {
                       onChange={(id) => handleMuniChange(id)}
                       onSearchMore={() => openSearchModal("municipalidad")}
                       required
+                      disabled={form.estado !== "BORRADOR"}
                     />
                     {showValidationErrors && !form.municipalidadId && (
                       <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
@@ -1714,6 +1681,7 @@ export function ActoresSocialesPage() {
                   onChange={(id) => setForm((curr) => ({ ...curr, grupoTrabajoId: id, grupoEstablecimientoId: "" }))}
                   onSearchMore={() => openSearchModal("grupo")}
                   required
+                  disabled={form.estado !== "BORRADOR"}
                 />
                 {showValidationErrors && !form.grupoTrabajoId && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
@@ -1740,6 +1708,7 @@ export function ActoresSocialesPage() {
                     }))
                   }
                   onSearchMore={() => openSearchModal("centro_poblado")}
+                  disabled={form.estado !== "BORRADOR"}
                 />
 
                 {/* Combobox replacement for Centro Poblado Rural */}
@@ -1756,6 +1725,7 @@ export function ActoresSocialesPage() {
                     }))
                   }
                   onSearchMore={() => openSearchModal("centro_poblado_rural")}
+                  disabled={form.estado !== "BORRADOR"}
                 />
 
                 <AutocompleteSearch
@@ -1767,6 +1737,7 @@ export function ActoresSocialesPage() {
                   onChange={(id) => setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }))}
                   onSearchMore={() => openSearchModal("establecimiento")}
                   required
+                  disabled={form.estado !== "BORRADOR"}
                 />
                 {showValidationErrors && !form.grupoEstablecimientoId && (
                   <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
@@ -1783,13 +1754,15 @@ export function ActoresSocialesPage() {
                       return sec ? (
                         <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", padding: "0.15rem 0.5rem", fontSize: "0.8rem", background: "#e8e8e8", borderRadius: "1rem", border: "1px solid #ccc" }}>
                           {sec.centroPoblado?.nombre || "-"} - {sec.nombreSector}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSectorTag(id)}
-                            style={{ border: "none", background: "transparent", cursor: "pointer", fontWeight: "bold", fontSize: "0.85rem", color: "#888" }}
-                          >
-                            ✕
-                          </button>
+                          {form.estado === "BORRADOR" && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSectorTag(id)}
+                              style={{ border: "none", background: "transparent", cursor: "pointer", fontWeight: "bold", fontSize: "0.85rem", color: "#888" }}
+                            >
+                              ✕
+                            </button>
+                          )}
                         </span>
                       ) : null;
                     })}
@@ -1800,7 +1773,7 @@ export function ActoresSocialesPage() {
                 <div style={{ marginTop: "1rem" }}>
                   <h3 style={{ fontSize: "0.95rem", margin: "0 0 0.75rem" }}>Sectores a corregir</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", minHeight: "2.5rem", padding: "0.5rem", border: "1px solid var(--border)", borderRadius: "0.25rem", background: "var(--surface-muted)" }}>
-                    {form.sectoresIds.map((id) => {
+                    {form.sectoresACorregirIds.map((id) => {
                       const sec = sectores.find((s) => s.id === id);
                       return sec ? (
                         <span key={id} style={{ display: "inline-flex", alignItems: "center", padding: "0.15rem 0.5rem", fontSize: "0.8rem", background: "#fde8e8", color: "#c81e1e", borderRadius: "1rem", border: "1px solid #f8b4b4" }}>
@@ -1808,150 +1781,105 @@ export function ActoresSocialesPage() {
                         </span>
                       ) : null;
                     })}
-                    {form.sectoresIds.length === 0 && <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontStyle: "italic" }}>Sin sectores asignados</span>}
+                    {form.sectoresACorregirIds.length === 0 && <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontStyle: "italic" }}>Sin sectores asignados</span>}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tab lists under form */}
-          <div style={{ background: "white", padding: "2rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div className="tab-buttons-bar">
-              <button
-                type="button"
-                onClick={() => setActiveTab("registros")}
-                className={`tab-button ${activeTab === "registros" ? "is-active" : "is-inactive"}`}
-              >
-                Registros
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("manzanas")}
-                className={`tab-button ${activeTab === "manzanas" ? "is-active" : "is-inactive"}`}
-              >
-                Asignacion de manzanas
-              </button>
-            </div>
+          {/* Action buttons bar */}
+          <div className="form-actions-margin-bottom">
+            {form.estado === "BORRADOR" && (
+              <>
+                <button className="admin-button is-ghost" onClick={() => setViewMode("list")} type="button">
+                  Cancelar
+                </button>
+                <button className="admin-button is-secondary" onClick={() => void saveActorData(false)} disabled={isSaving} type="button">
+                  Guardar
+                </button>
+                <button className="admin-button is-primary" onClick={() => void saveActorData(true)} disabled={isSaving} type="button">
+                  Registrar
+                </button>
+              </>
+            )}
 
-            {activeTab === "registros" ? (
-              <div style={{ padding: "1rem 0", color: "var(--muted)", fontStyle: "italic" }}>
-                No hay registros adicionales en esta sección.
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                  <span>{availableManzanas.length} manzanas / sectores urbanos disponibles en la municipalidad</span>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+            {form.estado === "REGISTRADO" && (
+              <>
+                <button className="admin-button is-ghost" onClick={() => setViewMode("list")} type="button">
+                  Cancelar
+                </button>
+                <button className="admin-button is-secondary" onClick={() => void saveActorData(false)} disabled={isSaving} type="button">
+                  Guardar
+                </button>
+                <button className="admin-button is-primary" onClick={() => void saveActorData(true)} disabled={isSaving} type="button">
+                  Validar
+                </button>
+              </>
+            )}
+
+            {form.estado === "VALIDADO" && (
+              <>
+                {user?.rol === "ADMIN_GENERAL" || user?.rol === "ADMIN_MUNICIPAL" ? (
+                  <>
                     <button
-                      className="admin-button is-ghost"
-                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                      disabled={manzanasPage === 0}
-                      onClick={() => setManzanasPage(p => p - 1)}
+                      className="admin-button is-ghost is-warning"
+                      onClick={() => {
+                        setStatusComment("");
+                        setIsObserveModalOpen(true);
+                      }}
+                      disabled={isSubmittingEstado}
                       type="button"
                     >
-                      ◀
+                      Observar
                     </button>
-                    <span style={{ alignSelf: "center", fontSize: "0.85rem" }}>
-                      {manzanasPage * 20 + 1}-{Math.min((manzanasPage + 1) * 20, availableManzanas.length)} de {availableManzanas.length}
-                    </span>
                     <button
-                      className="admin-button is-ghost"
-                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                      disabled={(manzanasPage + 1) * 20 >= availableManzanas.length}
-                      onClick={() => setManzanasPage(p => p + 1)}
+                      className="admin-button is-primary"
+                      onClick={() => {
+                        setConfirmConfig({
+                          isOpen: true,
+                          title: "Aprobar Actor Social",
+                          message: "¿Seguro que deseas aprobar y habilitar este actor social?",
+                          onConfirm: () => handleTransitionEstado(viewingActor!, "APROBADO"),
+                        });
+                      }}
+                      disabled={isSubmittingEstado}
                       type="button"
                     >
-                      ▶
+                      Aprobar
                     </button>
-                  </div>
-                </div>
+                  </>
+                ) : (
+                  <span className="status-pill is-warning" style={{ padding: "0.5rem 1rem", fontSize: "0.95rem" }}>
+                    En espera de revisión
+                  </span>
+                )}
+              </>
+            )}
 
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Sector</th>
-                        <th>Zona</th>
-                        <th>Manzana</th>
-                        <th style={{ width: "100px", textAlign: "center" }}>Asignado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedManzanas.map((m) => {
-                        const isAssigned = form.sectoresIds.includes(m.id);
-                        const asignadoAOtro = sectoresAsignadosAOtros[m.id];
-                        return (
-                          <tr key={m.id} style={asignadoAOtro ? { backgroundColor: "rgba(239, 68, 68, 0.05)" } : undefined}>
-                            <td>
-                              {m.nombreSector}
-                              {asignadoAOtro && (
-                                <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "500" }}>
-                                  ⚠️ Asignado a: {asignadoAOtro.actorName}
-                                </div>
-                              )}
-                            </td>
-                            <td>{m.urbano?.zona || "-"}</td>
-                            <td>{m.urbano?.manzana || "-"}</td>
-                            <td style={{ textAlign: "center" }}>
-                              <input
-                                type="checkbox"
-                                checked={isAssigned}
-                                onChange={() => handleToggleManzanaAssignment(m.id)}
-                                style={{ transform: "scale(1.2)", cursor: "pointer" }}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {availableManzanas.length === 0 && (
-                        <tr>
-                          <td className="admin-empty-cell" colSpan={4}>
-                            No hay sectores urbanos en esta municipalidad.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            {form.estado === "APROBADO" && viewingActor && (
+              <button
+                className="admin-button is-ghost is-danger"
+                onClick={() => {
+                  setConfirmConfig({
+                    isOpen: true,
+                    title: "Archivar Actor Social",
+                    message: "¿Seguro que deseas archivar este actor social? Se mantendrá el historial pero no estará activo.",
+                    onConfirm: () => handleArchivar(viewingActor),
+                  });
+                }}
+                type="button"
+              >
+                Archivar Actor Social
+              </button>
             )}
           </div>
         </div>
 
-        {/* Right Side: Timeline / Chatter Log */}
-        <div style={{ background: "#f8f9fa", border: "1px solid var(--border)", padding: "1.5rem", borderRadius: "0.55rem", display: "flex", flexDirection: "column", height: "fit-content" }}>
+        {/* Right Side: Timeline */}
+        <div style={{ background: "white", padding: "1.5rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", height: "fit-content" }}>
+          <h2 style={{ fontSize: "1.1rem", borderBottom: "2px solid #71639e", paddingBottom: "0.5rem", margin: "0 0 1rem" }}>HISTORIAL</h2>
           
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-            <button
-              className="admin-button is-primary"
-              style={{ flex: 1, backgroundColor: "#71639e" }}
-              type="button"
-              onClick={() => appendTimeline("Supervisor envió un mensaje")}
-            >
-              Enviar mensaje
-            </button>
-            <button
-              className="admin-button is-ghost"
-              style={{ flex: 1, border: "1px solid #ccc", background: "white" }}
-              type="button"
-              onClick={handleSendNote}
-            >
-              Registrar una nota
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "1.5rem" }}>
-            <span style={{ fontSize: "0.9rem", color: "var(--muted)", flex: 1 }}>Seguidores: <strong>1</strong></span>
-            <button
-              className="admin-button is-ghost"
-              style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-              type="button"
-            >
-              Seguir
-            </button>
-          </div>
-
           <div className="timeline-container">
             {timeline.map((item) => (
               <div key={item.id} className="timeline-item">
@@ -1979,6 +1907,273 @@ export function ActoresSocialesPage() {
           />
         </div>
       </div>
+
+      {/* Tab lists under form */}
+      {(viewMode === "detail" && form.estado !== "BORRADOR") && (
+        <div style={{ background: "white", padding: "2rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", marginTop: "2rem" }}>
+          <div className="tab-buttons-bar">
+            {form.estado === "APROBADO" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("registros")}
+                  className={`tab-button ${activeTab === "registros" ? "is-active" : "is-inactive"}`}
+                >
+                  Registros
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("manzanas")}
+                  className={`tab-button ${activeTab === "manzanas" ? "is-active" : "is-inactive"}`}
+                >
+                  Asignacion de manzanas
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveTab("otros_docs")}
+              className={`tab-button ${activeTab === "otros_docs" ? "is-active" : "is-inactive"}`}
+            >
+              Otros Documentos
+            </button>
+          </div>
+
+          {activeTab === "registros" && form.estado === "APROBADO" && (
+            <div style={{ padding: "1rem 0", color: "var(--muted)", fontStyle: "italic" }}>
+              No hay registros adicionales en esta sección.
+            </div>
+          )}
+
+          {activeTab === "manzanas" && form.estado === "APROBADO" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                <span>{availableManzanas.length} manzanas / sectores urbanos disponibles en la municipalidad</span>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    className="admin-button is-ghost"
+                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                    disabled={manzanasPage === 0}
+                    onClick={() => setManzanasPage(p => p - 1)}
+                    type="button"
+                  >
+                    ◀
+                  </button>
+                  <span style={{ alignSelf: "center", fontSize: "0.85rem" }}>
+                    {manzanasPage * 20 + 1}-{Math.min((manzanasPage + 1) * 20, availableManzanas.length)} de {availableManzanas.length}
+                  </span>
+                  <button
+                    className="admin-button is-ghost"
+                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                    disabled={(manzanasPage + 1) * 20 >= availableManzanas.length}
+                    onClick={() => setManzanasPage(p => p + 1)}
+                    type="button"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Sector</th>
+                      <th>Zona</th>
+                      <th>Manzana</th>
+                      <th style={{ width: "100px", textAlign: "center" }}>Asignado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedManzanas.map((m) => {
+                      const isAssigned = form.sectoresIds.includes(m.id);
+                      const asignadoAOtro = sectoresAsignadosAOtros[m.id];
+                      return (
+                        <tr key={m.id} style={asignadoAOtro ? { backgroundColor: "rgba(239, 68, 68, 0.05)" } : undefined}>
+                          <td>
+                            {m.nombreSector}
+                            {asignadoAOtro && (
+                              <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "500" }}>
+                                ⚠️ Asignado a: {asignadoAOtro.actorName}
+                              </div>
+                            )}
+                          </td>
+                          <td>{m.urbano?.zona || "-"}</td>
+                          <td>{m.urbano?.manzana || "-"}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={isAssigned}
+                              onChange={() => handleToggleManzanaAssignment(m.id)}
+                              style={{ transform: "scale(1.2)", cursor: "pointer" }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {availableManzanas.length === 0 && (
+                      <tr>
+                        <td className="admin-empty-cell" colSpan={4}>
+                          No hay sectores urbanos en esta municipalidad.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "otros_docs" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
+                <h4 style={{ margin: 0, fontSize: "1.05rem" }}>Otros Documentos</h4>
+                {(form.estado === "REGISTRADO" || form.estado === "APROBADO") && (
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input
+                      type="file"
+                      id="upload-actor-file-input"
+                      style={{ display: "none" }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setError(null);
+                        setMessage(null);
+                        try {
+                          const saved = await uploadActorArchivo(viewingActor!.id, file);
+                          setArchivos((curr) => [...curr, saved]);
+                          setMessage("Archivo subido con éxito.");
+                        } catch (err: any) {
+                          setError(err.message || "Error al subir el archivo.");
+                        }
+                      }}
+                    />
+                    <button
+                      className="admin-button is-primary"
+                      onClick={() => document.getElementById("upload-actor-file-input")?.click()}
+                      type="button"
+                    >
+                      + Subir Documento (PDF/Imagen)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre del Archivo</th>
+                      <th>Tipo</th>
+                      <th>Fecha de Carga</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {archivos.map((file) => (
+                      <tr key={file.id}>
+                        <td>{file.nombreArchivo}</td>
+                        <td>{file.mimeType}</td>
+                        <td>{new Date(file.createdAt).toLocaleString()}</td>
+                        <td>
+                          <div className="admin-row-actions">
+                            <button
+                              className="admin-icon-button"
+                              onClick={() => void downloadActorArchivo(file.id, file.nombreArchivo)}
+                              type="button"
+                            >
+                              Descargar
+                            </button>
+                            {(form.estado === "REGISTRADO" || form.estado === "APROBADO") && (
+                              <button
+                                className="admin-icon-button"
+                                style={{ color: "var(--color-danger, #d32f2f)" }}
+                                onClick={async () => {
+                                  if (!confirm("¿Está seguro de eliminar este documento?")) return;
+                                  setError(null);
+                                  setMessage(null);
+                                  try {
+                                    await deleteActorArchivo(viewingActor!.id, file.id);
+                                    setArchivos((curr) => curr.filter((f) => f.id !== file.id));
+                                    setMessage("Archivo eliminado con éxito.");
+                                  } catch (err: any) {
+                                    setError(err.message || "Error al eliminar el archivo.");
+                                  }
+                                }}
+                                type="button"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {archivos.length === 0 && (
+                      <tr>
+                        <td className="admin-empty-cell" colSpan={4}>
+                          No hay documentos adicionales cargados.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Observaciones */}
+      {isObserveModalOpen && (
+        <div aria-modal="true" className="admin-modal-backdrop" role="dialog" style={{ zIndex: 9999 }}>
+          <form
+            className="admin-modal"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!statusComment.trim()) return;
+              void handleTransitionEstado(viewingActor!, "REGISTRADO", statusComment);
+            }}
+          >
+            <div className="admin-modal-header">
+              <h2>Enviar con Observaciones</h2>
+              <button
+                className="admin-modal-close"
+                onClick={() => setIsObserveModalOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="admin-form-grid" style={{ padding: "1.5rem 1rem" }}>
+              <label className="field admin-form-wide">
+                Observaciones / Comentarios (Obligatorio)
+                <textarea
+                  maxLength={1000}
+                  onChange={(e) => setStatusComment(e.target.value)}
+                  required
+                  rows={4}
+                  value={statusComment}
+                  placeholder="Describe las correcciones necesarias..."
+                  style={{ background: "white", color: "var(--text)" }}
+                />
+              </label>
+            </div>
+            <div className="admin-form-actions">
+              <button
+                className="admin-button is-ghost"
+                onClick={() => setIsObserveModalOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button className="admin-button is-primary" disabled={isSubmittingEstado} type="submit">
+                Enviar Observación
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Advanced Search Modal */}
       {searchModalConfig.isOpen && (

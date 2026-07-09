@@ -6,6 +6,7 @@ import type {
   ActorSocialUpdateInput,
   ActoresSocialesRepository,
   EstadoActorSocial,
+  ActorSocialArchivoRecord,
 } from "./actores-sociales.types.js";
 
 const NOTIFICATION_MESSAGE =
@@ -131,6 +132,16 @@ export class ActoresSocialesService {
   async update(id: string, input: ActorSocialUpdateInput): Promise<ActorSocialRecord> {
     const existing = await this.getById(id);
 
+    // If state is not BORRADOR, prevent changing critical fields
+    if (existing.estado !== "BORRADOR") {
+      if (input.grupoTrabajoId && input.grupoTrabajoId !== existing.grupoTrabajoId) {
+        throw new HttpError(400, "No se puede cambiar el grupo de trabajo una vez registrado el actor social");
+      }
+      if (input.grupoEstablecimientoId !== undefined && input.grupoEstablecimientoId !== existing.grupoEstablecimientoId) {
+        throw new HttpError(400, "No se puede cambiar el establecimiento de salud una vez registrado el actor social");
+      }
+    }
+
     // Verify references
     if (this.repository.findTipoActorById) {
       const ta = await this.repository.findTipoActorById(input.tipoActorSocialId);
@@ -198,9 +209,9 @@ export class ActoresSocialesService {
     return this.repository.setActivo(id, activo);
   }
 
-  async setEstado(id: string, estado: EstadoActorSocial): Promise<ActorSocialRecord> {
+  async setEstado(id: string, estado: EstadoActorSocial, observaciones?: string | null): Promise<ActorSocialRecord> {
     await this.getById(id);
-    return this.repository.setEstado(id, estado);
+    return this.repository.setEstado(id, estado, observaciones);
   }
 
   async archive(id: string): Promise<ActorSocialRecord> {
@@ -223,5 +234,52 @@ export class ActoresSocialesService {
       ...record,
       notificationMessage: NOTIFICATION_MESSAGE,
     };
+  }
+
+  async listArchivos(actorSocialId: string): Promise<ActorSocialArchivoRecord[]> {
+    return this.repository.listArchivos(actorSocialId);
+  }
+
+  async createArchivo(
+    actorSocialId: string,
+    fileInput: {
+      nombreArchivo: string;
+      rutaArchivo: string;
+      mimeType: string;
+    }
+  ): Promise<ActorSocialArchivoRecord> {
+    const actor = await this.getById(actorSocialId);
+    this.ensureArchivosEditable(actor.estado);
+    return this.repository.createArchivo({
+      actorSocialId,
+      ...fileInput,
+    });
+  }
+
+  async getArchivoById(archivoId: string): Promise<ActorSocialArchivoRecord> {
+    const archivo = await this.repository.findArchivoById(archivoId);
+    if (!archivo) {
+      throw new HttpError(404, "Archivo no encontrado");
+    }
+    return archivo;
+  }
+
+  async deleteArchivo(actorSocialId: string, archivoId: string): Promise<ActorSocialArchivoRecord> {
+    const actor = await this.getById(actorSocialId);
+    this.ensureArchivosEditable(actor.estado);
+    const archivo = await this.getArchivoById(archivoId);
+    if (archivo.actorSocialId !== actorSocialId) {
+      throw new HttpError(400, "El archivo no pertenece a este actor social");
+    }
+    return this.repository.deleteArchivo(archivoId);
+  }
+
+  private ensureArchivosEditable(estado: string): void {
+    if (estado !== "REGISTRADO" && estado !== "APROBADO") {
+      throw new HttpError(
+        400,
+        "Los archivos solo se pueden modificar en un actor social en estado registrado o aprobado"
+      );
+    }
   }
 }

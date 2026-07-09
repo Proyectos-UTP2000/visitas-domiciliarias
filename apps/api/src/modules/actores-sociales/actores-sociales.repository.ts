@@ -21,6 +21,7 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
         sectores: true,
         sectoresACorregir: true,
         centroPoblado: true,
+        archivos: true,
       },
       orderBy: [{ apellidos: "asc" }, { nombres: "asc" }],
     }) as unknown as Promise<ActorSocialRecord[]>;
@@ -33,6 +34,7 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
         sectores: true,
         sectoresACorregir: true,
         centroPoblado: true,
+        archivos: true,
       },
     }) as unknown as Promise<ActorSocialRecord | null>;
   }
@@ -89,6 +91,7 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
           sectores: true,
           sectoresACorregir: true,
           centroPoblado: true,
+          archivos: true,
         },
       });
 
@@ -114,6 +117,7 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
         sectores: true,
         sectoresACorregir: true,
         centroPoblado: true,
+        archivos: true,
       },
     }) as unknown as Promise<ActorSocialRecord>;
   }
@@ -136,10 +140,16 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
     }) as unknown as Promise<ActorSocialRecord>;
   }
 
-  async setEstado(id: string, estado: EstadoActorSocial): Promise<ActorSocialRecord> {
+  async setEstado(id: string, estado: EstadoActorSocial, observaciones?: string | null): Promise<ActorSocialRecord> {
     return this.prisma.actorSocial.update({
       where: { id },
-      data: { estado },
+      data: { estado, observaciones: observaciones !== undefined ? observaciones : undefined },
+      include: {
+        sectores: true,
+        sectoresACorregir: true,
+        centroPoblado: true,
+        archivos: true,
+      },
     }) as unknown as Promise<ActorSocialRecord>;
   }
 
@@ -188,5 +198,35 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
         sectores: true,
       },
     }) as unknown as Promise<ActorSocialRecord | null>;
+  }
+
+  async listArchivos(actorSocialId: string) {
+    return this.prisma.actorSocialArchivo.findMany({
+      where: { actorSocialId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async createArchivo(data: {
+    actorSocialId: string;
+    nombreArchivo: string;
+    rutaArchivo: string;
+    mimeType: string;
+  }) {
+    return this.prisma.actorSocialArchivo.create({
+      data,
+    });
+  }
+
+  async findArchivoById(id: string) {
+    return this.prisma.actorSocialArchivo.findUnique({
+      where: { id },
+    });
+  }
+
+  async deleteArchivo(id: string) {
+    return this.prisma.actorSocialArchivo.delete({
+      where: { id },
+    });
   }
 }

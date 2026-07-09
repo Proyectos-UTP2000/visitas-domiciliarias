@@ -53,7 +53,8 @@ export const activoPayloadSchema = z.object({
 });
 
 export const estadoPayloadSchema = z.object({
-  estado: z.enum(["BORRADOR", "REGISTRADO", "VALIDO", "APROBADO"]),
+  estado: z.enum(["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"]),
+  observaciones: z.string().trim().nullable().optional(),
 });
 
 export const deletePayloadSchema = z.object({

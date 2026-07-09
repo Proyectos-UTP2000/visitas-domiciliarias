@@ -19,6 +19,10 @@ const mockRepository = {
   findGrupoById: vi.fn(),
   findEntidadById: vi.fn(),
   findActiveBySector: vi.fn(),
+  listArchivos: vi.fn(),
+  createArchivo: vi.fn(),
+  findArchivoById: vi.fn(),
+  deleteArchivo: vi.fn(),
 };
 
 const service = new ActoresSocialesService(
@@ -109,7 +113,7 @@ describe("ActoresSocialesService", () => {
   });
 
   it("throws error when updating and sector is already assigned to another active actor", async () => {
-    mockRepository.findById.mockResolvedValue({ id: "actor-1", municipalidadId: "mun-1" });
+    mockRepository.findById.mockResolvedValue({ id: "actor-1", municipalidadId: "mun-1", estado: "BORRADOR" });
     mockRepository.findTipoActorById.mockResolvedValue({ id: "tipo-1" });
     mockRepository.findGrupoById.mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1" });
     mockRepository.findActiveBySector.mockResolvedValue({
@@ -131,5 +135,56 @@ describe("ActoresSocialesService", () => {
     await expect(service.update("actor-1", payload)).rejects.toThrow(
       new HttpError(400, "El sector/manzana ya se encuentra asignado al actor social activo: Maria Gomez")
     );
+  });
+
+  it("throws error when trying to change group assignment of a registered actor social", async () => {
+    mockRepository.findById.mockResolvedValue({
+      id: "actor-1",
+      municipalidadId: "mun-1",
+      grupoTrabajoId: "grupo-old",
+      grupoEstablecimientoId: "est-old",
+      estado: "REGISTRADO",
+    });
+
+    const payload = {
+      tipoActorSocialId: "tipo-1",
+      grupoTrabajoId: "grupo-new",
+      email: "juan@gmail.com",
+      celular: "987654321",
+      direccion: "Calle Falsa 123",
+      gradoInstruccion: "SUPERIOR",
+    };
+
+    await expect(service.update("actor-1", payload)).rejects.toThrow(
+      new HttpError(400, "No se puede cambiar el grupo de trabajo una vez registrado el actor social")
+    );
+  });
+
+  it("allows file operations only under REGISTRADO or APROBADO states", async () => {
+    // 1. Fails under BORRADOR
+    mockRepository.findById.mockResolvedValue({
+      id: "actor-1",
+      estado: "BORRADOR",
+    });
+    await expect(service.createArchivo("actor-1", {
+      nombreArchivo: "doc.pdf",
+      rutaArchivo: "path",
+      mimeType: "application/pdf"
+    })).rejects.toThrow(
+      new HttpError(400, "Los archivos solo se pueden modificar en un actor social en estado registrado o aprobado")
+    );
+
+    // 2. Succeeds under REGISTRADO
+    mockRepository.findById.mockResolvedValue({
+      id: "actor-1",
+      estado: "REGISTRADO",
+    });
+    mockRepository.createArchivo.mockResolvedValue({ id: "file-1" });
+    const res = await service.createArchivo("actor-1", {
+      nombreArchivo: "doc.pdf",
+      rutaArchivo: "path",
+      mimeType: "application/pdf"
+    });
+    expect(res).toEqual({ id: "file-1" });
   });
 });

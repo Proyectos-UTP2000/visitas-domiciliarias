@@ -1,7 +1,7 @@
 export type EstadoActorSocial =
   | "BORRADOR"
   | "REGISTRADO"
-  | "VALIDO"
+  | "VALIDADO"
   | "APROBADO";
 
 export type ActorSocialRecord = {
@@ -23,6 +23,7 @@ export type ActorSocialRecord = {
   idiomaOrigen: string;
   gradoInstruccion: string;
   estado: EstadoActorSocial;
+  observaciones: string | null;
   activo: boolean;
   inactivadoPermanentemente: boolean;
   archivado: boolean;
@@ -33,6 +34,7 @@ export type ActorSocialRecord = {
   sectores?: any[];
   sectoresACorregir?: any[];
   centroPoblado?: any;
+  archivos?: any[];
 };
 
 export type ActorSocialCreateInput = {
@@ -72,6 +74,15 @@ export type ActorSocialUpdateInput = {
   sectoresACorregirIds?: string[];
 };
 
+export type ActorSocialArchivoRecord = {
+  id: string;
+  actorSocialId: string;
+  nombreArchivo: string;
+  rutaArchivo: string;
+  mimeType: string;
+  createdAt: Date;
+};
+
 export type ActoresSocialesRepository = {
   list(municipalidadId?: string | null): Promise<ActorSocialRecord[]>;
   findById(id: string): Promise<ActorSocialRecord | null>;
@@ -87,8 +98,17 @@ export type ActoresSocialesRepository = {
   ): Promise<ActorSocialRecord>;
   update(id: string, data: ActorSocialUpdateInput): Promise<ActorSocialRecord>;
   setActivo(id: string, activo: boolean): Promise<ActorSocialRecord>;
-  setEstado(id: string, estado: EstadoActorSocial): Promise<ActorSocialRecord>;
+  setEstado(id: string, estado: EstadoActorSocial, observaciones?: string | null): Promise<ActorSocialRecord>;
   archive(id: string): Promise<ActorSocialRecord>;
   delete(id: string, motivoEliminacion: string): Promise<ActorSocialRecord>;
   findActiveBySector(sectorId: string, excludingActorId?: string): Promise<ActorSocialRecord | null>;
+  listArchivos(actorSocialId: string): Promise<ActorSocialArchivoRecord[]>;
+  createArchivo(data: {
+    actorSocialId: string;
+    nombreArchivo: string;
+    rutaArchivo: string;
+    mimeType: string;
+  }): Promise<ActorSocialArchivoRecord>;
+  findArchivoById(id: string): Promise<ActorSocialArchivoRecord | null>;
+  deleteArchivo(id: string): Promise<ActorSocialArchivoRecord>;
 };

@@ -1,8 +1,17 @@
 export type EstadoActorSocial =
   | "BORRADOR"
   | "REGISTRADO"
-  | "VALIDO"
+  | "VALIDADO"
   | "APROBADO";
+
+export type ActorSocialArchivo = {
+  id: string;
+  actorSocialId: string;
+  nombreArchivo: string;
+  rutaArchivo: string;
+  mimeType: string;
+  createdAt: string;
+};
 
 export type ActorSocialRecord = {
   id: string;
@@ -23,12 +32,14 @@ export type ActorSocialRecord = {
   idiomaOrigen: string;
   gradoInstruccion: string;
   estado: EstadoActorSocial;
+  observaciones?: string | null;
   activo: boolean;
   inactivadoPermanentemente: boolean;
   archivado: boolean;
   sectores?: { id: string; nombreSector: string; centroPoblado?: { nombre: string } | null; urbano?: { zona: string; manzana: string } | null }[];
   sectoresACorregir?: { id: string; nombreSector: string; centroPoblado?: { nombre: string } | null }[];
   centroPoblado?: { id: string; nombre: string; tipo: string } | null;
+  archivos?: ActorSocialArchivo[];
 };
 
 export type ActorSocialFormState = {
