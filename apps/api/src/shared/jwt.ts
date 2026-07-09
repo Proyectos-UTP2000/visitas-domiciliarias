@@ -2,7 +2,7 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "./env.js";
 import { HttpError } from "./http-error.js";
 
-export type AuthRole = "ADMIN_GENERAL" | "ADMIN_MUNICIPAL" | "ACTOR_SOCIAL";
+export type AuthRole = "ADMIN_GENERAL" | "ADMIN_MUNICIPAL" | "SUPERVISOR" | "PERSONAL_SALUD" | "ACTOR_SOCIAL";
 
 export type AccessTokenPayload = {
   userId: string;
@@ -75,6 +75,8 @@ function isAuthRole(value: unknown): value is AuthRole {
   return (
     value === "ADMIN_GENERAL" ||
     value === "ADMIN_MUNICIPAL" ||
+    value === "SUPERVISOR" ||
+    value === "PERSONAL_SALUD" ||
     value === "ACTOR_SOCIAL"
   );
 }

@@ -9,6 +9,8 @@ datasource db {
 enum RolUsuario {
   ADMIN_GENERAL
   ADMIN_MUNICIPAL
+  SUPERVISOR
+  PERSONAL_SALUD
   ACTOR_SOCIAL
 }
 
@@ -20,9 +22,8 @@ enum TipoMunicipalidad {
 enum EstadoGrupoTrabajo {
   BORRADOR
   REGISTRADO
-  OBSERVADO
   VALIDADO
-  RECHAZADO
+  APROBADO
 }
 
 enum TipoSector {
@@ -33,8 +34,7 @@ enum TipoSector {
 enum EstadoActorSocial {
   BORRADOR
   REGISTRADO
-  VALIDO
-  CAPACITADO
+  VALIDADO
   APROBADO
 }
 
@@ -281,6 +281,7 @@ model ActorSocial {
   idiomaOrigen               String            @map("idioma_origen") @db.VarChar(100)
   gradoInstruccion           String            @map("grado_instruccion") @db.VarChar(100)
   estado                     EstadoActorSocial @default(BORRADOR)
+  observaciones              String?           @map("observaciones") @db.Text
   activo                     Boolean           @default(true)
   inactivadoPermanentemente  Boolean           @default(false) @map("inactivado_permanentemente")
   archivado                  Boolean           @default(false)
@@ -299,9 +300,23 @@ model ActorSocial {
 
   sectores             Sector[]              @relation("ActorSocialSectores")
   sectoresACorregir    Sector[]              @relation("ActorSocialSectoresACorregir")
+  archivos             ActorSocialArchivo[]
 
   @@unique([municipalidadId, dni])
   @@map("actor_social")
+}
+
+model ActorSocialArchivo {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorSocialId String   @map("actor_social_id") @db.Uuid
+  nombreArchivo String   @map("nombre_archivo") @db.VarChar(255)
+  rutaArchivo   String   @map("ruta_archivo") @db.Text
+  mimeType      String   @map("mime_type") @db.VarChar(100)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actorSocial   ActorSocial @relation(fields: [actorSocialId], references: [id], onDelete: Cascade)
+
+  @@map("actor_social_archivo")
 }
 
 model GrupoTrabajoArchivo {
