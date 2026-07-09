@@ -57,6 +57,6 @@ export const miembroGrupoDeleteSchema = z.object({
 });
 
 export const grupoTrabajoEstadoSchema = z.object({
-  estado: z.enum(["BORRADOR", "REGISTRADO", "OBSERVADO", "VALIDADO", "RECHAZADO"]),
+  estado: z.enum(["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"]),
   observaciones: z.string().trim().nullable().optional(),
 });

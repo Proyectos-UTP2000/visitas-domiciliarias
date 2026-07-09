@@ -282,7 +282,7 @@ export function GruposPage() {
         <td>{`${g.nombreRepresentante} ${g.apellidosRepresentante}`}</td>
         <td>{g.dniRepresentante}</td>
         <td>
-          <span className={`status-pill ${g.estado === "VALIDADO" ? "is-active" : g.estado === "RECHAZADO" ? "is-danger" : "is-muted"}`}>
+          <span className={`status-pill ${g.estado === "APROBADO" ? "is-active" : g.estado === "VALIDADO" ? "is-warning" : "is-muted"}`}>
             {g.estado}
           </span>
         </td>
@@ -361,7 +361,7 @@ export function GruposPage() {
               </button>
               <button
                 className="admin-button is-primary"
-                onClick={openCreate}
+                onClick={() => navigate("/grupos-trabajo/nuevo")}
                 type="button"
               >
                 + Nuevo grupo

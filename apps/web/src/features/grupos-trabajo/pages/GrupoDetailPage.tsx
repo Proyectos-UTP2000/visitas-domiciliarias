@@ -17,6 +17,7 @@ import {
   downloadArchivo,
   deleteGrupo,
   archivarGrupo,
+  createGrupo,
 } from "../grupos-api";
 import type {
   GrupoEstablecimientoFormState,
@@ -34,6 +35,8 @@ import {
   filterMiembros,
 } from "../grupos-utils";
 import { getStoredSession } from "../../auth/auth-storage";
+import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
+import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
 
 export function GrupoDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +45,7 @@ export function GrupoDetailPage() {
   const [user, setUser] = useState<{ rol: string; municipalidadId: string | null } | null>(null);
   const [grupo, setGrupo] = useState<GrupoTrabajoRecord | null>(null);
   const [cargos, setCargos] = useState<CargoMiembroRecord[]>([]);
+  const [municipalidades, setMunicipalidades] = useState<MunicipalidadRecord[]>([]);
   const [establecimientos, setEstablecimientos] = useState<GrupoEstablecimientoRecord[]>([]);
   const [miembros, setMiembros] = useState<MiembroGrupoRecord[]>([]);
   const [cargosMap, setCargosMap] = useState<Record<string, string>>({});
@@ -142,26 +146,10 @@ export function GrupoDetailPage() {
     }
   }
 
-  function openEditGrupo() {
-    if (!grupo) return;
-    setEditForm({
-      municipalidadId: grupo.municipalidadId,
-      fechaLimite: new Date(grupo.fechaLimite).toISOString().split("T")[0],
-      nombreGrupo: grupo.nombreGrupo,
-      periodoYear: String(grupo.periodoYear),
-      dniRepresentante: grupo.dniRepresentante,
-      nombreRepresentante: grupo.nombreRepresentante,
-      apellidosRepresentante: grupo.apellidosRepresentante,
-    });
-    setError(null);
-    setMessage(null);
-    setIsEditGrupoOpen(true);
-  }
-
   async function handleEditDniLookup() {
     const dni = editForm.dniRepresentante.trim();
     if (!/^\d{8}$/.test(dni)) {
-      setError("El DNI debe tener exactamente 8 dígitos.");
+      setError("El DNI del representante debe tener exactamente 8 dígitos.");
       return;
     }
     setIsSearchingDni(true);
@@ -180,12 +168,31 @@ export function GrupoDetailPage() {
     }
   }
 
-  async function handleEditGrupoSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!id) return;
-    setIsSaving(true);
+  async function handleSaveDraft(shouldTransitionToRegistrado: boolean) {
     setError(null);
     setMessage(null);
+    setIsSaving(true);
+
+    const resolvedMuniId = (user?.rol === "ADMIN_GENERAL" ? editForm.municipalidadId : user?.municipalidadId) || "";
+    
+    const missing: string[] = [];
+    if (!resolvedMuniId) missing.push("Municipalidad");
+    if (!editForm.nombreGrupo.trim()) missing.push("Nombre del Grupo");
+    if (!editForm.fechaLimite) missing.push("Fecha Límite");
+    if (!/^\d{8}$/.test(editForm.dniRepresentante)) missing.push("DNI Representante (8 dígitos)");
+    if (!editForm.nombreRepresentante.trim() || !editForm.apellidosRepresentante.trim()) {
+      missing.push("Consulta del Representante por DNI");
+    }
+    const year = Number(editForm.periodoYear);
+    if (isNaN(year) || year < 2000 || year > 32767) {
+      missing.push("Periodo anual (año válido entre 2000 y 32767)");
+    }
+
+    if (missing.length > 0) {
+      setError(`Por favor, complete todos los campos obligatorios marcados con * y verifique que sean válidos. Campos faltantes o incorrectos: ${missing.join(", ")}.`);
+      setIsSaving(false);
+      return;
+    }
 
     const todayStr = new Date().toISOString().split("T")[0];
     if (editForm.fechaLimite < todayStr) {
@@ -194,33 +201,55 @@ export function GrupoDetailPage() {
       return;
     }
 
-    if (!/^\d{8}$/.test(editForm.dniRepresentante)) {
-      setError("El DNI del representante debe tener exactamente 8 dígitos.");
-      setIsSaving(false);
-      return;
-    }
-
-    const year = Number(editForm.periodoYear);
-    if (isNaN(year) || year < 2000 || year > 32767) {
-      setError("El período anual debe ser un número válido entre 2000 y 32767.");
-      setIsSaving(false);
-      return;
-    }
-
     try {
-      const updated = await updateGrupo(id, {
+      const payload = {
+        municipalidadId: resolvedMuniId,
+        fechaLimite: editForm.fechaLimite,
         nombreGrupo: editForm.nombreGrupo.trim(),
         periodoYear: year,
-        fechaLimite: editForm.fechaLimite,
         dniRepresentante: editForm.dniRepresentante.trim(),
         nombreRepresentante: editForm.nombreRepresentante.trim(),
         apellidosRepresentante: editForm.apellidosRepresentante.trim(),
+      };
+
+      let savedGrupo: GrupoTrabajoRecord;
+      if (id === "nuevo") {
+        savedGrupo = await createGrupo(payload);
+      } else {
+        savedGrupo = await updateGrupo(id!, payload);
+      }
+
+      let nextGrupoState = savedGrupo;
+      if (shouldTransitionToRegistrado) {
+        nextGrupoState = await updateGrupoEstado(savedGrupo.id, "REGISTRADO");
+      }
+
+      setGrupo(nextGrupoState);
+      setEditForm({
+        municipalidadId: nextGrupoState.municipalidadId,
+        fechaLimite: new Date(nextGrupoState.fechaLimite).toISOString().split("T")[0],
+        nombreGrupo: nextGrupoState.nombreGrupo,
+        periodoYear: String(nextGrupoState.periodoYear),
+        dniRepresentante: nextGrupoState.dniRepresentante,
+        nombreRepresentante: nextGrupoState.nombreRepresentante,
+        apellidosRepresentante: nextGrupoState.apellidosRepresentante,
       });
-      setGrupo((curr) => curr ? { ...curr, ...updated } : null);
-      setMessage("Grupo de trabajo actualizado con éxito.");
-      setIsEditGrupoOpen(false);
+
+      setMessage(
+        id === "nuevo"
+          ? shouldTransitionToRegistrado
+            ? "Grupo de trabajo creado y registrado con éxito."
+            : "Borrador de grupo de trabajo creado con éxito."
+          : shouldTransitionToRegistrado
+            ? "Grupo de trabajo actualizado y registrado con éxito."
+            : "Grupo de trabajo guardado con éxito."
+      );
+
+      if (id === "nuevo") {
+        navigate(`/grupos-trabajo/${savedGrupo.id}`, { replace: true });
+      }
     } catch (err: any) {
-      setError(err.message || "Error al actualizar el grupo.");
+      setError(err.message || "Error al guardar el grupo de trabajo.");
     } finally {
       setIsSaving(false);
     }
@@ -249,22 +278,52 @@ export function GrupoDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [currentGrupo, cargoList] = await Promise.all([
-        getGrupoById(id),
+      const session = getStoredSession();
+      const [cargoList, munList] = await Promise.all([
         listCargos(),
+        listMunicipalidades(),
       ]);
 
-      setGrupo(currentGrupo);
       setCargos(cargoList.filter((c) => c.activo));
-      setMiembros(currentGrupo.miembros || []);
-      setEstablecimientos(currentGrupo.establecimientos || []);
-      setArchivos(currentGrupo.archivos || []);
+      setMunicipalidades(munList);
 
       const map: Record<string, string> = {};
       cargoList.forEach((c) => {
         map[c.id] = c.nombre;
       });
       setCargosMap(map);
+
+      if (id !== "nuevo") {
+        const currentGrupo = await getGrupoById(id);
+        setGrupo(currentGrupo);
+        setMiembros(currentGrupo.miembros || []);
+        setEstablecimientos(currentGrupo.establecimientos || []);
+        setArchivos(currentGrupo.archivos || []);
+        setEditForm({
+          municipalidadId: currentGrupo.municipalidadId,
+          fechaLimite: new Date(currentGrupo.fechaLimite).toISOString().split("T")[0],
+          nombreGrupo: currentGrupo.nombreGrupo,
+          periodoYear: String(currentGrupo.periodoYear),
+          dniRepresentante: currentGrupo.dniRepresentante,
+          nombreRepresentante: currentGrupo.nombreRepresentante,
+          apellidosRepresentante: currentGrupo.apellidosRepresentante,
+        });
+      } else {
+        const muniId = session?.user?.rol === "ADMIN_MUNICIPAL" ? session.user.municipalidadId : "";
+        setEditForm({
+          municipalidadId: muniId || "",
+          fechaLimite: "",
+          nombreGrupo: "",
+          periodoYear: String(new Date().getFullYear()),
+          dniRepresentante: "",
+          nombreRepresentante: "",
+          apellidosRepresentante: "",
+        });
+        setGrupo(null);
+        setMiembros([]);
+        setEstablecimientos([]);
+        setArchivos([]);
+      }
     } catch (err: any) {
       setError(err.message || "Error al cargar los detalles.");
     } finally {
@@ -395,11 +454,19 @@ export function GrupoDetailPage() {
     }
   }
 
+  const isCreation = id === "nuevo";
+  const currentEstado = isCreation ? "BORRADOR" : (grupo?.estado || "BORRADOR");
+  const selectedMuni = useMemo(() => {
+    return municipalidades.find(m => m.id === editForm.municipalidadId);
+  }, [municipalidades, editForm.municipalidadId]);
+  const isFormDisabled = currentEstado === "VALIDADO" || currentEstado === "APROBADO";
+  const isDniPeriodoDisabled = isFormDisabled || currentEstado === "REGISTRADO";
+
   return (
     <>
       <section className="admin-page-heading">
         <div>
-          <h1>{grupo?.nombreGrupo || "Cargando..."}</h1>
+          <h1>{isCreation ? "Nuevo Grupo de Trabajo" : (grupo?.nombreGrupo || "Cargando...")}</h1>
           <p>Conformación de miembros y establecimientos del grupo.</p>
         </div>
         <div className="breadcrumb-card">
@@ -414,97 +481,292 @@ export function GrupoDetailPage() {
         </div>
       </section>
 
-      {error ? <p className="alert alert-error">{error}</p> : null}
-      {message ? <p className="alert alert-success">{message}</p> : null}
+      {(error || message) && (
+        <div className="admin-page-alerts">
+          {error ? <p className="alert alert-error">{error}</p> : null}
+          {message ? <p className="alert alert-success">{message}</p> : null}
+        </div>
+      )}
 
-      {grupo ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 3fr", gap: "2rem", alignItems: "start" }}>
-          {/* Info Panel */}
-          <div className="admin-content-card" style={{ padding: "1.5rem" }}>
-            <h3 style={{ margin: "0 0 1rem" }}>Datos Generales</h3>
-            <p><strong>Representante:</strong><br />{`${grupo.nombreRepresentante} ${grupo.apellidosRepresentante}`}</p>
-            <p><strong>DNI Representante:</strong><br />{grupo.dniRepresentante}</p>
-            <p><strong>Periodo:</strong><br />{grupo.periodoYear}</p>
-            <p><strong>Fecha Límite:</strong><br />{new Date(grupo.fechaLimite).toLocaleDateString()}</p>
-            <p>
-              <strong>Estado:</strong><br />
-              <span className="status-pill is-active">{grupo.estado}</span>
-            </p>
+      {isLoading ? (
+        <div style={{ padding: "3rem", textAlign: "center", color: "var(--muted, #666)" }}>
+          Cargando datos del grupo de trabajo...
+        </div>
+      ) : (
+        <>
+          {/* Stepper bar */}
+          <div className="stepper-bar">
+            {["Borrador", "Registrado", "Validado", "Aprobado"].map((step, idx) => {
+              const stepEnum = step.toUpperCase() === "VALIDADO" ? "VALIDADO" : step.toUpperCase();
+              const isCompleted = idx < ["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"].indexOf(currentEstado);
+              const isActive = idx === ["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"].indexOf(currentEstado);
+              return (
+                <div key={step} className="stepper-step" style={{ flex: idx === 3 ? "none" : 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    <div className={`stepper-step-circle ${isCompleted || isActive ? (isActive ? "is-active" : "is-completed") : "is-inactive"}`}>
+                      {idx + 1}
+                    </div>
+                    <span className={`stepper-step-label ${isActive ? "is-active" : "is-inactive"}`}>
+                      {step}
+                    </span>
+                  </div>
+                  {idx < 3 && (
+                    <div className={`stepper-line ${isCompleted ? "is-completed" : "is-inactive"}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-            {grupo.observaciones && (grupo.estado === "OBSERVADO" || grupo.estado === "RECHAZADO") && (
-              <div
-                style={{
-                  marginTop: "1rem",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                  background: grupo.estado === "RECHAZADO" ? "rgba(211, 47, 47, 0.1)" : "rgba(245, 124, 0, 0.1)",
-                  border: `1px solid ${grupo.estado === "RECHAZADO" ? "var(--color-danger, #d32f2f)" : "var(--color-warning, #f57c00)"}`,
-                  color: grupo.estado === "RECHAZADO" ? "var(--color-danger, #d32f2f)" : "var(--color-warning, #f57c00)",
-                }}
-              >
-                <strong style={{ display: "block", marginBottom: "0.25rem" }}>
-                  {grupo.estado === "RECHAZADO" ? "Motivo del Rechazo:" : "Observaciones del Administrador:"}
-                </strong>
-                <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{grupo.observaciones}</p>
+          {/* Form / Details columns */}
+          <form onSubmit={(e) => e.preventDefault()}>
+            <div className="admin-form-two-columns">
+              {/* Left Column: GOBIERNO LOCAL */}
+              <div className="admin-content-card">
+                <h3 className="card-section-title">
+                  GOBIERNO LOCAL
+                </h3>
+                <div className="form-stack">
+                  <label className="field">
+                    Municipalidad *
+                    {user?.rol === "ADMIN_GENERAL" && currentEstado === "BORRADOR" ? (
+                      <select
+                        value={editForm.municipalidadId}
+                        onChange={(e) => setEditForm(curr => ({ ...curr, municipalidadId: e.target.value }))}
+                        required
+                      >
+                        <option value="">Selecciona municipalidad...</option>
+                        {municipalidades.map((m) => (
+                          <option key={m.id} value={m.id}>{m.nombre}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={selectedMuni?.nombre || "Cargando..."}
+                        disabled
+                      />
+                    )}
+                  </label>
+
+                  <label className="field">
+                    Departamento
+                    <input
+                      type="text"
+                      value={selectedMuni?.departamento || "—"}
+                      disabled
+                    />
+                  </label>
+
+                  <label className="field">
+                    Provincia
+                    <input
+                      type="text"
+                      value={selectedMuni?.provincia || "—"}
+                      disabled
+                    />
+                  </label>
+
+                  <label className="field">
+                    Distrito
+                    <input
+                      type="text"
+                      value={selectedMuni?.distrito || "—"}
+                      disabled
+                    />
+                  </label>
+
+                  <label className="field">
+                    Fecha límite conformación de Grupo de trabajo *
+                    <input
+                      type="date"
+                      value={editForm.fechaLimite}
+                      onChange={(e) => setEditForm(curr => ({ ...curr, fechaLimite: e.target.value }))}
+                      disabled={isFormDisabled}
+                      min={new Date().toISOString().split("T")[0]}
+                      required
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Right Column: GRUPO DE TRABAJO */}
+              <div className="admin-content-card">
+                <h3 className="card-section-title">
+                  GRUPO DE TRABAJO
+                </h3>
+                <div className="form-stack">
+                  <label className="field">
+                    Grupo de Trabajo *
+                    <input
+                      type="text"
+                      value={editForm.nombreGrupo}
+                      onChange={(e) => setEditForm(curr => ({ ...curr, nombreGrupo: e.target.value }))}
+                      disabled={isFormDisabled}
+                      maxLength={150}
+                      placeholder="Ej. Comité IAL LA VICTORIA"
+                      required
+                    />
+                  </label>
+
+                  <div className="field-row-1-2">
+                    <label className="field">
+                      Periodo (Año) *
+                      <input
+                        type="number"
+                        value={editForm.periodoYear}
+                        onChange={(e) => setEditForm(curr => ({ ...curr, periodoYear: e.target.value }))}
+                        disabled={isDniPeriodoDisabled}
+                        min={2000}
+                        max={32767}
+                        required
+                      />
+                    </label>
+
+                    <div className="field">
+                      <span>DNI Representante *</span>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <input
+                          type="text"
+                          value={editForm.dniRepresentante}
+                          onChange={(e) => setEditForm(curr => ({ ...curr, dniRepresentante: e.target.value }))}
+                          disabled={isDniPeriodoDisabled}
+                          maxLength={8}
+                          style={{ flex: 1, marginTop: 0 }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="admin-button is-secondary"
+                          disabled={isDniPeriodoDisabled || isSearchingDni}
+                          onClick={handleEditDniLookup}
+                          style={{ height: "38px", minHeight: "38px" }}
+                        >
+                          {isSearchingDni ? "..." : "Consultar"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="field-row-2col">
+                    <label className="field">
+                      Nombres del Representante
+                      <input
+                        type="text"
+                        value={editForm.nombreRepresentante}
+                        disabled
+                      />
+                    </label>
+
+                    <label className="field">
+                      Apellidos del Representante
+                      <input
+                        type="text"
+                        value={editForm.apellidosRepresentante}
+                        disabled
+                      />
+                    </label>
+                  </div>
+
+                  {!isCreation && grupo && (
+                    <label className="field">
+                      Última modificación
+                      <input
+                        type="text"
+                        value={grupo.updatedAt ? new Date(grupo.updatedAt).toLocaleString() : "—"}
+                        disabled
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Observations alert */}
+            {grupo?.observaciones && (currentEstado === "REGISTRADO" || currentEstado === "VALIDADO") && (
+              <div className="observations-alert-box">
+                <strong>Observaciones del Supervisor:</strong>
+                <p style={{ margin: "0.25rem 0 0", whiteSpace: "pre-wrap" }}>{grupo.observaciones}</p>
               </div>
             )}
 
-            {/* Acciones de Estado */}
-            <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--color-border, #ccc)", paddingTop: "1rem" }}>
-              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO") && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <button
-                    className="admin-button is-primary"
-                    style={{ width: "100%" }}
-                    onClick={() => {
-                      setConfirmConfig({
-                        isOpen: true,
-                        title: "Registrar Grupo",
-                        message: "¿Seguro que deseas registrar este grupo de trabajo? Se bloqueará la edición y pasará a revisión.",
-                        onConfirm: () => handleTransitionEstado("REGISTRADO"),
-                      });
-                    }}
-                    disabled={isSubmittingEstado}
-                    type="button"
-                  >
-                    Registrar Grupo
+            {/* Action buttons */}
+            <div className="form-actions-margin-bottom">
+              {currentEstado === "BORRADOR" && (
+                <>
+                  <button className="admin-button is-ghost" onClick={() => navigate("/grupos-trabajo")} type="button">
+                    Cancelar
                   </button>
-                  <button
-                    className="admin-button is-ghost"
-                    style={{
-                      width: "100%",
-                      border: "1px solid var(--color-danger, #d32f2f)",
-                      color: "var(--color-danger, #d32f2f)",
-                    }}
-                    onClick={() => {
-                      setConfirmConfig({
-                        isOpen: true,
-                        title: "Eliminar Borrador",
-                        message: "¿Seguro que deseas eliminar este borrador de grupo de trabajo? Esta acción es definitiva y borrará todos los establecimientos y miembros asociados.",
-                        onConfirm: () => handleDeleteGrupo(),
-                      });
-                    }}
-                    disabled={isSubmittingEstado}
-                    type="button"
-                  >
-                    Eliminar Borrador
+                  <button className="admin-button is-secondary" onClick={() => handleSaveDraft(false)} disabled={isSaving} type="button">
+                    Guardar
                   </button>
-                </div>
+                  <button className="admin-button is-primary" onClick={() => handleSaveDraft(true)} disabled={isSaving} type="button">
+                    Registrar
+                  </button>
+                </>
               )}
 
-              {grupo.estado === "VALIDADO" && (
+              {currentEstado === "REGISTRADO" && (
+                <>
+                  <button className="admin-button is-ghost" onClick={() => navigate("/grupos-trabajo")} type="button">
+                    Cancelar
+                  </button>
+                  <button className="admin-button is-secondary" onClick={() => handleSaveDraft(false)} disabled={isSaving} type="button">
+                    Guardar
+                  </button>
+                  <button className="admin-button is-primary" onClick={() => handleTransitionEstado("VALIDADO")} disabled={isSaving} type="button">
+                    Validar
+                  </button>
+                </>
+              )}
+
+              {currentEstado === "VALIDADO" && (
+                <>
+                  {user?.rol === "ADMIN_GENERAL" || user?.rol === "ADMIN_MUNICIPAL" ? (
+                    <>
+                      <button
+                        className="admin-button is-ghost is-warning"
+                        onClick={() => {
+                          setStatusComment("");
+                          setIsObserveModalOpen(true);
+                        }}
+                        disabled={isSubmittingEstado}
+                        type="button"
+                      >
+                        Observar
+                      </button>
+                      <button
+                        className="admin-button is-primary"
+                        onClick={() => {
+                          setConfirmConfig({
+                            isOpen: true,
+                            title: "Aprobar / Validar Grupo",
+                            message: "¿Seguro que deseas aprobar y validar este grupo de trabajo?",
+                            onConfirm: () => handleTransitionEstado("APROBADO"),
+                          });
+                        }}
+                        disabled={isSubmittingEstado}
+                        type="button"
+                      >
+                        Aprobar
+                      </button>
+                    </>
+                  ) : (
+                    <span className="status-pill is-warning" style={{ padding: "0.5rem 1rem", fontSize: "0.95rem" }}>
+                      En espera de revisión
+                    </span>
+                  )}
+                </>
+              )}
+
+              {currentEstado === "APROBADO" && grupo && (
                 <button
-                  className="admin-button is-ghost"
-                  style={{
-                    width: "100%",
-                    border: "1px solid var(--muted, #666)",
-                    color: "var(--muted, #666)",
-                  }}
+                  className="admin-button is-ghost is-danger"
                   onClick={() => {
                     setConfirmConfig({
                       isOpen: true,
                       title: "Archivar Grupo",
-                      message: "¿Seguro que deseas archivar este grupo de trabajo? Ya no estará activo en el sistema, pero se mantendrá su historial.",
+                      message: "¿Seguro que deseas archivar este grupo de trabajo? Se mantendrá el historial pero no estará activo.",
                       onConfirm: () => handleArchivarGrupo(),
                     });
                   }}
@@ -513,140 +775,94 @@ export function GrupoDetailPage() {
                   Archivar Grupo
                 </button>
               )}
+            </div>
+          </form>
 
-              {user?.rol === "ADMIN_GENERAL" && grupo.estado === "REGISTRADO" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {/* Secciones Inferiores / Pestañas */}
+          {!isCreation && grupo && currentEstado !== "BORRADOR" && (
+            <div className="admin-content-card" style={{ marginTop: "2rem" }}>
+              {currentEstado === "APROBADO" ? (
+                <div style={{ display: "flex", borderBottom: "1px solid var(--border, #eee)", marginBottom: "1.5rem" }}>
                   <button
-                    className="admin-button is-primary"
-                    style={{ width: "100%" }}
-                    onClick={() => {
-                      setConfirmConfig({
-                        isOpen: true,
-                        title: "Aprobar / Validar Grupo",
-                        message: "¿Seguro que deseas aprobar y validar este grupo de trabajo?",
-                        onConfirm: () => handleTransitionEstado("VALIDADO"),
-                      });
+                    onClick={() => setActiveTab("estab")}
+                    style={{
+                      padding: "1rem 2rem",
+                      border: "none",
+                      background: "none",
+                      color: activeTab === "estab" ? "var(--primary)" : "var(--muted)",
+                      fontWeight: activeTab === "estab" ? "700" : "500",
+                      borderBottom: activeTab === "estab" ? "3px solid var(--primary)" : "3px solid transparent",
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                      transition: "all 160ms ease",
                     }}
-                    disabled={isSubmittingEstado}
                     type="button"
                   >
-                    Aprobar / Validar
+                    Establecimientos ({establecimientos.length})
                   </button>
                   <button
-                    className="admin-button is-ghost"
+                    onClick={() => setActiveTab("miembro")}
                     style={{
-                      width: "100%",
-                      border: "1px solid var(--color-warning, #f57c00)",
-                      color: "var(--color-warning, #f57c00)",
+                      padding: "1rem 2rem",
+                      border: "none",
+                      background: "none",
+                      color: activeTab === "miembro" ? "var(--primary)" : "var(--muted)",
+                      fontWeight: activeTab === "miembro" ? "700" : "500",
+                      borderBottom: activeTab === "miembro" ? "3px solid var(--primary)" : "3px solid transparent",
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                      transition: "all 160ms ease",
                     }}
-                    onClick={() => {
-                      setStatusComment("");
-                      setIsObserveModalOpen(true);
-                    }}
-                    disabled={isSubmittingEstado}
                     type="button"
                   >
-                    Observar
+                    Miembros ({miembros.length})
                   </button>
                   <button
-                    className="admin-button is-ghost"
+                    onClick={() => setActiveTab("otros_docs")}
                     style={{
-                      width: "100%",
-                      border: "1px solid var(--color-danger, #d32f2f)",
-                      color: "var(--color-danger, #d32f2f)",
+                      padding: "1rem 2rem",
+                      border: "none",
+                      background: "none",
+                      color: activeTab === "otros_docs" ? "var(--primary)" : "var(--muted)",
+                      fontWeight: activeTab === "otros_docs" ? "700" : "500",
+                      borderBottom: activeTab === "otros_docs" ? "3px solid var(--primary)" : "3px solid transparent",
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                      transition: "all 160ms ease",
                     }}
-                    onClick={() => {
-                      setStatusComment("");
-                      setIsRejectModalOpen(true);
-                    }}
-                    disabled={isSubmittingEstado}
                     type="button"
                   >
-                    Rechazar
+                    Otros Documentos ({otrosDocs.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("actas")}
+                    style={{
+                      padding: "1rem 2rem",
+                      border: "none",
+                      background: "none",
+                      color: activeTab === "actas" ? "var(--primary)" : "var(--muted)",
+                      fontWeight: activeTab === "actas" ? "700" : "500",
+                      borderBottom: activeTab === "actas" ? "3px solid var(--primary)" : "3px solid transparent",
+                      cursor: "pointer",
+                      fontSize: "0.95rem",
+                      transition: "all 160ms ease",
+                    }}
+                    type="button"
+                  >
+                    Actas del Grupo ({actasDocs.length})
                   </button>
                 </div>
+              ) : (
+                <div style={{ padding: "1.5rem 1rem 0.5rem", borderBottom: "1px solid var(--border, #eee)", marginBottom: "1.5rem" }}>
+                  <h4 style={{ margin: 0 }}>Otros Documentos del Grupo</h4>
+                </div>
               )}
-            </div>
-          </div>
 
-          {/* Main Tabs Panel */}
-            <div className="admin-content-card">
-            <div style={{ display: "flex", borderBottom: "1px solid var(--border)", marginBottom: "1.5rem" }}>
-              <button
-                onClick={() => setActiveTab("estab")}
-                style={{
-                  padding: "1rem 2rem",
-                  border: "none",
-                  background: "none",
-                  color: activeTab === "estab" ? "var(--primary)" : "var(--muted)",
-                  fontWeight: activeTab === "estab" ? "700" : "500",
-                  borderBottom: activeTab === "estab" ? "3px solid var(--primary)" : "3px solid transparent",
-                  cursor: "pointer",
-                  fontSize: "0.95rem",
-                  transition: "all 160ms ease",
-                }}
-                type="button"
-              >
-                Establecimientos ({establecimientos.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("miembro")}
-                style={{
-                  padding: "1rem 2rem",
-                  border: "none",
-                  background: "none",
-                  color: activeTab === "miembro" ? "var(--primary)" : "var(--muted)",
-                  fontWeight: activeTab === "miembro" ? "700" : "500",
-                  borderBottom: activeTab === "miembro" ? "3px solid var(--primary)" : "3px solid transparent",
-                  cursor: "pointer",
-                  fontSize: "0.95rem",
-                  transition: "all 160ms ease",
-                }}
-                type="button"
-              >
-                Miembros ({miembros.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("otros_docs")}
-                style={{
-                  padding: "1rem 2rem",
-                  border: "none",
-                  background: "none",
-                  color: activeTab === "otros_docs" ? "var(--primary)" : "var(--muted)",
-                  fontWeight: activeTab === "otros_docs" ? "700" : "500",
-                  borderBottom: activeTab === "otros_docs" ? "3px solid var(--primary)" : "3px solid transparent",
-                  cursor: "pointer",
-                  fontSize: "0.95rem",
-                  transition: "all 160ms ease",
-                }}
-                type="button"
-              >
-                Otros Documentos ({otrosDocs.length})
-              </button>
-              <button
-                onClick={() => setActiveTab("actas")}
-                style={{
-                  padding: "1rem 2rem",
-                  border: "none",
-                  background: "none",
-                  color: activeTab === "actas" ? "var(--primary)" : "var(--muted)",
-                  fontWeight: activeTab === "actas" ? "700" : "500",
-                  borderBottom: activeTab === "actas" ? "3px solid var(--primary)" : "3px solid transparent",
-                  cursor: "pointer",
-                  fontSize: "0.95rem",
-                  transition: "all 160ms ease",
-                }}
-                type="button"
-              >
-                Actas del Grupo ({actasDocs.length})
-              </button>
-            </div>
-
-            {activeTab === "estab" && (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem" }}>
-                  <h4>Lista de Establecimientos</h4>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
+              {/* Contenido de Establecimientos (solo si APROBADO) */}
+              {currentEstado === "APROBADO" && activeTab === "estab" && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem" }}>
+                    <h4>Lista de Establecimientos</h4>
                     <button
                       className="admin-button is-primary"
                       onClick={() => setIsEstModalOpen(true)}
@@ -654,52 +870,51 @@ export function GrupoDetailPage() {
                     >
                       + Agregar establecimiento
                     </button>
-                  )}
-                </div>
+                  </div>
 
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Nombre</th>
-                        <th>Código</th>
-                        <th>Dirección</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {establecimientos.map((e) => (
-                        <tr key={e.id}>
-                          <td>{e.nombre}</td>
-                          <td>{e.codigo || "—"}</td>
-                          <td>{e.direccion || "—"}</td>
-                        </tr>
-                      ))}
-                      {establecimientos.length === 0 ? (
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
                         <tr>
-                          <td className="admin-empty-cell" colSpan={3}>
-                            No hay establecimientos registrados.
-                          </td>
+                          <th>Nombre</th>
+                          <th>Código</th>
+                          <th>Dirección</th>
                         </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {establecimientos.map((e) => (
+                          <tr key={e.id}>
+                            <td>{e.nombre}</td>
+                            <td>{e.codigo || "—"}</td>
+                            <td>{e.direccion || "—"}</td>
+                          </tr>
+                        ))}
+                        {establecimientos.length === 0 ? (
+                          <tr>
+                            <td className="admin-empty-cell" colSpan={3}>
+                              No hay establecimientos registrados.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === "miembro" && (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem" }}>
-                  <label className="admin-search-field" style={{ width: "300px" }}>
-                    <span aria-hidden="true">⌕</span>
-                    <input
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Buscar miembro..."
-                      type="search"
-                      value={query}
-                    />
-                  </label>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
+              {/* Contenido de Miembros (solo si APROBADO) */}
+              {currentEstado === "APROBADO" && activeTab === "miembro" && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem" }}>
+                    <label className="admin-search-field" style={{ width: "300px" }}>
+                      <span aria-hidden="true">⌕</span>
+                      <input
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Buscar miembro..."
+                        type="search"
+                        value={query}
+                      />
+                    </label>
                     <button
                       className="admin-button is-primary"
                       onClick={() => setIsMibModalOpen(true)}
@@ -707,371 +922,298 @@ export function GrupoDetailPage() {
                     >
                       + Agregar miembro
                     </button>
-                  )}
-                </div>
+                  </div>
 
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>DNI</th>
-                        <th>Nombre Completo</th>
-                        <th>Cargo</th>
-                        <th>Establecimiento</th>
-                        <th>Contacto</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMiembros.map((m) => (
-                        <tr key={m.id}>
-                          <td>{m.dni}</td>
-                          <td>{`${m.nombres} ${m.apellidos}`}</td>
-                          <td>{cargosMap[m.cargoMiembroGrupoId] || "—"}</td>
-                          <td>
-                            {establecimientos.find((e) => e.id === m.grupoEstablecimientoId)?.nombre ||
-                              "—"}
-                          </td>
-                          <td>
-                            {m.celular ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "2px 0" }}>
-                                <LuPhone style={{ color: "var(--muted)", flexShrink: 0 }} size={14} />
-                                <span>{m.celular}</span>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>DNI</th>
+                          <th>Nombre Completo</th>
+                          <th>Cargo</th>
+                          <th>Establecimiento</th>
+                          <th>Contacto</th>
+                          <th>Estado</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredMiembros.map((m) => (
+                          <tr key={m.id}>
+                            <td>{m.dni}</td>
+                            <td>{`${m.nombres} ${m.apellidos}`}</td>
+                            <td>{cargosMap[m.cargoMiembroGrupoId] || "—"}</td>
+                            <td>
+                              {establecimientos.find((e) => e.id === m.grupoEstablecimientoId)?.nombre || "—"}
+                            </td>
+                            <td>
+                              {m.celular ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "2px 0" }}>
+                                  <LuPhone style={{ color: "var(--muted)", flexShrink: 0 }} size={14} />
+                                  <span>{m.celular}</span>
+                                </div>
+                              ) : null}
+                              {m.email ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "2px 0" }}>
+                                  <LuMail style={{ color: "var(--muted)", flexShrink: 0 }} size={14} />
+                                  <span style={{ textTransform: "none" }}>{m.email}</span>
+                                </div>
+                              ) : null}
+                              {!m.celular && !m.email ? "—" : null}
+                            </td>
+                            <td>
+                              <span className={m.activo ? "status-pill is-active" : "status-pill is-muted"}>
+                                {m.activo ? "Activo" : "Inactivo"}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="admin-row-actions">
+                                <button
+                                  className="admin-icon-button"
+                                  onClick={() => {
+                                    setEditingMiembro(m);
+                                    setMibForm({
+                                      dni: m.dni,
+                                      nombres: m.nombres,
+                                      apellidos: m.apellidos,
+                                      cargoMiembroGrupoId: m.cargoMiembroGrupoId,
+                                      grupoEstablecimientoId: m.grupoEstablecimientoId || "",
+                                      celular: m.celular || "",
+                                      email: m.email || "",
+                                    });
+                                    setIsMibEditOpen(true);
+                                  }}
+                                  type="button"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  className="admin-icon-button"
+                                  onClick={() => void handleToggleActivo(m)}
+                                  type="button"
+                                >
+                                  {m.activo ? "Inactivar" : "Activar"}
+                                </button>
+                                <button
+                                  className="admin-icon-button"
+                                  onClick={() => setIsDeleteModalOpen(true)}
+                                  type="button"
+                                >
+                                  Eliminar
+                                </button>
                               </div>
-                            ) : null}
-                            {m.email ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px", margin: "2px 0" }}>
-                                <LuMail style={{ color: "var(--muted)", flexShrink: 0 }} size={14} />
-                                <span style={{ textTransform: "none" }}>{m.email}</span>
-                              </div>
-                            ) : null}
-                            {!m.celular && !m.email ? "—" : null}
-                          </td>
-                          <td>
-                            <span className={m.activo ? "status-pill is-active" : "status-pill is-muted"}>
-                              {m.activo ? "Activo" : "Inactivo"}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="admin-row-actions">
-                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") ? (
-                                <>
+                            </td>
+                          </tr>
+                        ))}
+                        {filteredMiembros.length === 0 ? (
+                          <tr>
+                            <td className="admin-empty-cell" colSpan={7}>
+                              No se encontraron miembros.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Contenido de Otros Documentos */}
+              {(currentEstado === "REGISTRADO" || currentEstado === "VALIDADO" || (currentEstado === "APROBADO" && activeTab === "otros_docs")) && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
+                    <h4>Otros Documentos</h4>
+                    {(currentEstado === "REGISTRADO" || currentEstado === "APROBADO") && (
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                        <input
+                          type="file"
+                          id="upload-file-input"
+                          style={{ display: "none" }}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setError(null);
+                            setMessage(null);
+                            try {
+                              const saved = await uploadArchivo(id!, file);
+                              setArchivos((curr: GrupoTrabajoArchivoRecord[]) => [...curr, saved]);
+                              setMessage("Archivo subido con éxito.");
+                            } catch (err: any) {
+                              setError(err.message || "Error al subir el archivo.");
+                            }
+                          }}
+                        />
+                        <button
+                          className="admin-button is-primary"
+                          onClick={() => document.getElementById("upload-file-input")?.click()}
+                          type="button"
+                        >
+                          + Subir Documento (PDF/Imagen)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Nombre del Archivo</th>
+                          <th>Tipo</th>
+                          <th>Fecha de Carga</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {otrosDocs.map((file) => (
+                          <tr key={file.id}>
+                            <td>{file.nombreArchivo}</td>
+                            <td>{file.mimeType}</td>
+                            <td>{new Date(file.createdAt).toLocaleString()}</td>
+                            <td>
+                              <div className="admin-row-actions">
+                                <button
+                                  className="admin-icon-button"
+                                  onClick={() => void downloadArchivo(file.id, file.nombreArchivo)}
+                                  type="button"
+                                >
+                                  Descargar
+                                </button>
+                                {(currentEstado === "REGISTRADO" || currentEstado === "APROBADO") && (
                                   <button
                                     className="admin-icon-button"
-                                    onClick={() => {
-                                      setEditingMiembro(m);
-                                      setMibForm({
-                                        dni: m.dni,
-                                        nombres: m.nombres,
-                                        apellidos: m.apellidos,
-                                        cargoMiembroGrupoId: m.cargoMiembroGrupoId,
-                                        grupoEstablecimientoId: m.grupoEstablecimientoId || "",
-                                        celular: m.celular || "",
-                                        email: m.email || "",
-                                      });
-                                      setIsMibEditOpen(true);
+                                    style={{ color: "var(--color-danger, #d32f2f)" }}
+                                    onClick={async () => {
+                                      if (!confirm("¿Está seguro de eliminar este documento?")) return;
+                                      setError(null);
+                                      setMessage(null);
+                                      try {
+                                        await deleteArchivo(id!, file.id);
+                                        setArchivos((curr: GrupoTrabajoArchivoRecord[]) => curr.filter((f) => f.id !== file.id));
+                                        setMessage("Archivo eliminado con éxito.");
+                                      } catch (err: any) {
+                                        setError(err.message || "Error al eliminar el archivo.");
+                                      }
                                     }}
-                                    type="button"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    className="admin-icon-button"
-                                    onClick={() => void handleToggleActivo(m)}
-                                    type="button"
-                                  >
-                                    {m.activo ? "Inactivar" : "Activar"}
-                                  </button>
-                                  <button
-                                    className="admin-icon-button"
-                                    onClick={() => setIsDeleteModalOpen(true)}
                                     type="button"
                                   >
                                     Eliminar
                                   </button>
-                                </>
-                              ) : (
-                                <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Lectura</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredMiembros.length === 0 ? (
-                        <tr>
-                          <td className="admin-empty-cell" colSpan={7}>
-                            No se encontraron miembros.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {otrosDocs.length === 0 ? (
+                          <tr>
+                            <td className="admin-empty-cell" colSpan={4}>
+                              No hay documentos registrados para este grupo de trabajo.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === "otros_docs" && (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
-                  <h4>Otros Documentos</h4>
-                  {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
+              {/* Contenido de Actas (solo si APROBADO) */}
+              {currentEstado === "APROBADO" && activeTab === "actas" && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
+                    <h4>Actas del Grupo de Trabajo</h4>
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                       <input
                         type="file"
-                        id="upload-file-input"
+                        id="upload-acta-input"
                         style={{ display: "none" }}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
+                          // Prefix filename with 'acta_' so it goes to the actas docs
+                          const renamedFile = new File([file], `acta_${file.name}`, { type: file.type });
                           setError(null);
                           setMessage(null);
                           try {
-                            const saved = await uploadArchivo(id!, file);
+                            const saved = await uploadArchivo(id!, renamedFile);
                             setArchivos((curr: GrupoTrabajoArchivoRecord[]) => [...curr, saved]);
-                            setMessage("Archivo subido con éxito.");
+                            setMessage("Acta subida con éxito.");
                           } catch (err: any) {
-                            setError(err.message || "Error al subir el archivo.");
+                            setError(err.message || "Error al subir el acta.");
                           }
                         }}
                       />
                       <button
                         className="admin-button is-primary"
-                        onClick={() => document.getElementById("upload-file-input")?.click()}
+                        onClick={() => document.getElementById("upload-acta-input")?.click()}
                         type="button"
                       >
-                        + Subir Documento (PDF/Imagen)
+                        + Subir Acta (PDF/Imagen)
                       </button>
                     </div>
-                  )}
-                </div>
-
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Nombre del Archivo</th>
-                        <th>Tipo</th>
-                        <th>Fecha de Carga</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                       {otrosDocs.map((file) => (
-                        <tr key={file.id}>
-                          <td>{file.nombreArchivo}</td>
-                          <td>{file.mimeType}</td>
-                          <td>{new Date(file.createdAt).toLocaleString()}</td>
-                          <td>
-                            <div className="admin-row-actions">
-                              <button
-                                className="admin-icon-button"
-                                onClick={() => void downloadArchivo(file.id, file.nombreArchivo)}
-                                type="button"
-                              >
-                                Descargar
-                              </button>
-                              {(grupo.estado === "BORRADOR" || grupo.estado === "OBSERVADO" || grupo.estado === "VALIDADO") && (
+                  </div>
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Nombre del Acta</th>
+                          <th>Fecha de Carga</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {actasDocs.map((file) => (
+                          <tr key={file.id}>
+                            <td>{file.nombreArchivo.replace(/^acta_/, "")}</td>
+                            <td>{new Date(file.createdAt).toLocaleString()}</td>
+                            <td>
+                              <div className="admin-row-actions">
+                                <button
+                                  className="admin-icon-button"
+                                  onClick={() => void downloadArchivo(file.id, file.nombreArchivo)}
+                                  type="button"
+                                >
+                                  Descargar
+                                </button>
                                 <button
                                   className="admin-icon-button"
                                   style={{ color: "var(--color-danger, #d32f2f)" }}
                                   onClick={async () => {
-                                    if (!confirm("¿Está seguro de eliminar este documento?")) return;
+                                    if (!confirm("¿Está seguro de eliminar esta acta?")) return;
                                     setError(null);
                                     setMessage(null);
                                     try {
                                       await deleteArchivo(id!, file.id);
                                       setArchivos((curr: GrupoTrabajoArchivoRecord[]) => curr.filter((f) => f.id !== file.id));
-                                      setMessage("Archivo eliminado con éxito.");
+                                      setMessage("Acta eliminada con éxito.");
                                     } catch (err: any) {
-                                      setError(err.message || "Error al eliminar el archivo.");
+                                      setError(err.message || "Error al eliminar el acta.");
                                     }
                                   }}
                                   type="button"
                                 >
                                   Eliminar
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {otrosDocs.length === 0 ? (
-                        <tr>
-                          <td className="admin-empty-cell" colSpan={4}>
-                            No hay documentos registrados para este grupo de trabajo.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {actasDocs.length === 0 ? (
+                          <tr>
+                            <td className="admin-empty-cell" colSpan={3}>
+                              No hay actas registradas para este grupo de trabajo.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {activeTab === "actas" && (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
-                  <h4>Actas del Grupo de Trabajo</h4>
-                </div>
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Nombre del Acta</th>
-                        <th>Fecha de Carga</th>
-                        <th>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {actasDocs.map((file) => (
-                        <tr key={file.id}>
-                          <td>{file.nombreArchivo}</td>
-                          <td>{new Date(file.createdAt).toLocaleString()}</td>
-                          <td>
-                            <button
-                              className="admin-icon-button"
-                              onClick={() => void downloadArchivo(file.id, file.nombreArchivo)}
-                              type="button"
-                            >
-                              Descargar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {actasDocs.length === 0 ? (
-                        <tr>
-                          <td className="admin-empty-cell" colSpan={3}>
-                            No hay actas registradas para este grupo de trabajo.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Modal Editar Datos Generales del Grupo */}
-      {isEditGrupoOpen ? (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
-          <form className="admin-modal" onSubmit={handleEditGrupoSubmit}>
-            <div className="admin-modal-header">
-              <div>
-                <h2>Editar Datos Generales</h2>
-                <p>Modifica la información básica del grupo de trabajo.</p>
-              </div>
-              <button
-                className="admin-modal-close"
-                onClick={() => setIsEditGrupoOpen(false)}
-                type="button"
-              >
-                ×
-              </button>
+              )}
             </div>
-
-            <div className="admin-form-grid">
-              <label className="field admin-form-wide">
-                Nombre del Grupo
-                <input
-                  maxLength={150}
-                  onChange={(e) =>
-                    setEditForm((curr) => ({ ...curr, nombreGrupo: e.target.value }))
-                  }
-                  required
-                  value={editForm.nombreGrupo}
-                />
-              </label>
-              <label className="field">
-                Periodo (Año)
-                <input
-                  max={32767}
-                  min={2000}
-                  onChange={(e) =>
-                    setEditForm((curr) => ({ ...curr, periodoYear: e.target.value }))
-                  }
-                  required
-                  type="number"
-                  value={editForm.periodoYear}
-                />
-              </label>
-              <label className="field">
-                Fecha Límite
-                <input
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={(e) =>
-                    setEditForm((curr) => ({ ...curr, fechaLimite: e.target.value }))
-                  }
-                  required
-                  type="date"
-                  value={editForm.fechaLimite}
-                />
-              </label>
-              <div className="field admin-form-wide">
-                DNI Representante
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-                  <input
-                    maxLength={8}
-                    onChange={(e) =>
-                      setEditForm((curr) => ({ ...curr, dniRepresentante: e.target.value }))
-                    }
-                    required
-                    style={{ flex: 1, marginTop: 0 }}
-                    value={editForm.dniRepresentante}
-                  />
-                  <button
-                    className="admin-button is-secondary"
-                    disabled={isSearchingDni}
-                    onClick={handleEditDniLookup}
-                    style={{ padding: "0 1rem", height: "38px", minHeight: "38px", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    type="button"
-                  >
-                    {isSearchingDni ? "..." : "Consultar"}
-                  </button>
-                </div>
-              </div>
-              <label className="field admin-form-wide">
-                Nombre Representante
-                <input
-                  maxLength={150}
-                  onChange={(e) =>
-                    setEditForm((curr) => ({ ...curr, nombreRepresentante: e.target.value }))
-                  }
-                  required
-                  value={editForm.nombreRepresentante}
-                />
-              </label>
-              <label className="field admin-form-wide">
-                Apellidos Representante
-                <input
-                  maxLength={200}
-                  onChange={(e) =>
-                    setEditForm((curr) => ({ ...curr, apellidosRepresentante: e.target.value }))
-                  }
-                  required
-                  value={editForm.apellidosRepresentante}
-                />
-              </label>
-            </div>
-
-            <div className="admin-form-actions">
-              <button
-                className="admin-button is-ghost"
-                onClick={() => setIsEditGrupoOpen(false)}
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button className="admin-button is-primary" disabled={isSaving} type="submit">
-                {isSaving ? "Guardando..." : "Guardar Cambios"}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+          )}
+        </>
+      )}
 
       {/* Modal Establecimiento */}
       {isEstModalOpen ? (
@@ -1181,7 +1323,7 @@ export function GrupoDetailPage() {
                   required
                   value={mibForm.cargoMiembroGrupoId}
                 >
-                  <option value="">Selecciona cargo...</option>
+                  <option value="">Seleccione cargo...</option>
                   {cargos.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
@@ -1190,17 +1332,17 @@ export function GrupoDetailPage() {
                 </select>
               </label>
               <label className="field">
-                Establecimiento
+                Establecimiento de Salud
                 <select
                   onChange={(e) =>
                     setMibForm((curr) => ({ ...curr, grupoEstablecimientoId: e.target.value }))
                   }
                   value={mibForm.grupoEstablecimientoId}
                 >
-                  <option value="">Ninguno</option>
-                  {establecimientos.map((es) => (
-                    <option key={es.id} value={es.id}>
-                      {es.nombre}
+                  <option value="">Ninguno...</option>
+                  {establecimientos.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
                     </option>
                   ))}
                 </select>
@@ -1214,7 +1356,7 @@ export function GrupoDetailPage() {
                 />
               </label>
               <label className="field">
-                Email
+                Correo Electrónico
                 <input
                   onChange={(e) => setMibForm((curr) => ({ ...curr, email: e.target.value }))}
                   type="email"
@@ -1231,19 +1373,19 @@ export function GrupoDetailPage() {
                 Cancelar
               </button>
               <button className="admin-button is-primary" type="submit">
-                Agregar miembro
+                Agregar
               </button>
             </div>
           </form>
         </div>
       ) : null}
 
-      {/* Modal Miembro Editar (Limitado) */}
-      {isMibEditOpen ? (
+      {/* Modal Miembro Editar */}
+      {isMibEditOpen && editingMiembro ? (
         <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
           <form className="admin-modal" onSubmit={handleEditMiembro}>
             <div className="admin-modal-header">
-              <h2>Editar Miembro (Edición Limitada)</h2>
+              <h2>Editar Miembro Administrativo</h2>
               <button
                 className="admin-modal-close"
                 onClick={() => setIsMibEditOpen(false)}
@@ -1252,31 +1394,35 @@ export function GrupoDetailPage() {
                 ×
               </button>
             </div>
+            <div style={{ padding: "0 1rem", color: "var(--muted, #666)", fontSize: "0.95rem" }}>
+              <p style={{ margin: "0.5rem 0" }}>
+                <strong>DNI:</strong> {editingMiembro.dni}
+              </p>
+              <p style={{ margin: "0.5rem 0" }}>
+                <strong>Nombre:</strong> {`${editingMiembro.nombres} ${editingMiembro.apellidos}`}
+              </p>
+            </div>
             <div className="admin-form-grid">
               <label className="field">
-                DNI (Solo Lectura)
-                <input disabled value={mibForm.dni} />
+                Cargo
+                <select disabled value={editingMiembro.cargoMiembroGrupoId}>
+                  <option value={editingMiembro.cargoMiembroGrupoId}>
+                    {cargosMap[editingMiembro.cargoMiembroGrupoId] || "—"}
+                  </option>
+                </select>
               </label>
               <label className="field">
-                Nombre Completo (Solo Lectura)
-                <input disabled value={`${mibForm.nombres} ${mibForm.apellidos}`} />
-              </label>
-              <label className="field">
-                Cargo (Solo Lectura)
-                <input disabled value={cargosMap[mibForm.cargoMiembroGrupoId] || ""} />
-              </label>
-              <label className="field">
-                Establecimiento
+                Establecimiento de Salud
                 <select
                   onChange={(e) =>
                     setMibForm((curr) => ({ ...curr, grupoEstablecimientoId: e.target.value }))
                   }
                   value={mibForm.grupoEstablecimientoId}
                 >
-                  <option value="">Ninguno</option>
-                  {establecimientos.map((es) => (
-                    <option key={es.id} value={es.id}>
-                      {es.nombre}
+                  <option value="">Ninguno...</option>
+                  {establecimientos.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
                     </option>
                   ))}
                 </select>
@@ -1290,7 +1436,7 @@ export function GrupoDetailPage() {
                 />
               </label>
               <label className="field">
-                Email
+                Correo Electrónico
                 <input
                   onChange={(e) => setMibForm((curr) => ({ ...curr, email: e.target.value }))}
                   type="email"
@@ -1311,40 +1457,6 @@ export function GrupoDetailPage() {
               </button>
             </div>
           </form>
-        </div>
-      ) : null}
-
-      {/* Modal Por Implementar */}
-      {isDeleteModalOpen ? (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog">
-          <div className="admin-modal">
-            <div className="admin-modal-header">
-              <h2>Eliminar Miembro</h2>
-              <button
-                className="admin-modal-close"
-                onClick={() => setIsDeleteModalOpen(false)}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ padding: "1rem" }}>
-              <p><strong>Por Implementar</strong></p>
-              <p>
-                La eliminación lógica de miembros administrativos con motivo de eliminación está
-                diferida y será completamente implementada en la fase V2.
-              </p>
-            </div>
-            <div className="admin-form-actions">
-              <button
-                className="admin-button is-primary"
-                onClick={() => setIsDeleteModalOpen(false)}
-                type="button"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
         </div>
       ) : null}
 

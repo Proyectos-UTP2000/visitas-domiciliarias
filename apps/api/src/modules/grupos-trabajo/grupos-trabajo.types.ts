@@ -1,9 +1,8 @@
 export type EstadoGrupoTrabajo =
   | "BORRADOR"
   | "REGISTRADO"
-  | "OBSERVADO"
   | "VALIDADO"
-  | "RECHAZADO";
+  | "APROBADO";
 
 export type GrupoTrabajoRecord = {
   id: string;

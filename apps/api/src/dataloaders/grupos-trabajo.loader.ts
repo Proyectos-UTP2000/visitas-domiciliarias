@@ -108,7 +108,7 @@ type GrupoTrabajoDelegate = {
       dniRepresentante: string;
       nombreRepresentante: string;
       apellidosRepresentante: string;
-      estado: "BORRADOR" | "REGISTRADO" | "OBSERVADO" | "VALIDADO" | "RECHAZADO";
+      estado: "BORRADOR" | "REGISTRADO" | "VALIDADO" | "APROBADO";
       activo: boolean;
       archivado: boolean;
       establecimientos?: {

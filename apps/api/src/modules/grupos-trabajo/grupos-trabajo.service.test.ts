@@ -4,11 +4,11 @@ import { GruposTrabajoService } from "./grupos-trabajo.service.js";
 function createRepository(overrides: Record<string, unknown> = {}) {
   return {
     list: vi.fn().mockResolvedValue([]),
-    findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1", estado: "BORRADOR" }),
+    findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1", estado: "APROBADO" }),
     findFullGrupoById: vi.fn().mockResolvedValue({
       id: "grupo-1",
       municipalidadId: "mun-1",
-      estado: "BORRADOR",
+      estado: "APROBADO",
       miembros: [],
       establecimientos: [],
       archivos: [],
@@ -76,7 +76,7 @@ describe("GruposTrabajoService", () => {
     });
     const service = new GruposTrabajoService(
       createRepository({
-        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "BORRADOR" }),
+        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "APROBADO" }),
         createEstablecimiento,
       }),
     );
@@ -185,9 +185,8 @@ describe("GruposTrabajoService", () => {
     });
     const service = new GruposTrabajoService(
       createRepository({
-        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "BORRADOR" }),
+        findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "APROBADO" }),
         findEstablecimientoById: vi.fn().mockResolvedValue({
-          id: "est-1",
           grupoTrabajoId: "grupo-1",
         }),
         updateMiembroContacto,
@@ -257,15 +256,11 @@ describe("GruposTrabajoService", () => {
     expect(updateGrupoEstado).toHaveBeenCalledWith("grupo-1", "VALIDADO", null);
   });
 
-  it("requires observations when status is OBSERVADO or RECHAZADO", async () => {
+  it("requires observations when status is observed (REGISTRADO with blank observations)", async () => {
     const service = new GruposTrabajoService(createRepository());
 
     await expect(
-      service.updateGrupoEstado("grupo-1", "OBSERVADO", " "),
-    ).rejects.toMatchObject({ statusCode: 400 });
-
-    await expect(
-      service.updateGrupoEstado("grupo-1", "RECHAZADO", ""),
+      service.updateGrupoEstado("grupo-1", "REGISTRADO", " "),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
@@ -291,7 +286,7 @@ describe("GruposTrabajoService", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("rejects modifications when group is not in BORRADOR or OBSERVADO", async () => {
+  it("rejects modifications when group is not APROBADO", async () => {
     const service = new GruposTrabajoService(
       createRepository({
         findGrupoById: vi.fn().mockResolvedValue({ id: "grupo-1", estado: "REGISTRADO" }),
@@ -308,7 +303,7 @@ describe("GruposTrabajoService", () => {
       createRepository({
         findFullGrupoById: vi.fn().mockResolvedValue({
           id: "grupo-1",
-          estado: "BORRADOR",
+          estado: "APROBADO",
           miembros: [{ dni: "12345678" }],
         }),
       }),
