@@ -90,4 +90,5 @@ export type ActoresSocialesRepository = {
   setEstado(id: string, estado: EstadoActorSocial): Promise<ActorSocialRecord>;
   archive(id: string): Promise<ActorSocialRecord>;
   delete(id: string, motivoEliminacion: string): Promise<ActorSocialRecord>;
+  findActiveBySector(sectorId: string, excludingActorId?: string): Promise<ActorSocialRecord | null>;
 };

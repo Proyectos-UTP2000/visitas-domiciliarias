@@ -104,6 +104,18 @@ export class ActoresSocialesService {
       if (!ent) throw new HttpError(404, "Entidad no encontrada");
     }
 
+    if (input.sectoresIds && input.sectoresIds.length > 0) {
+      for (const sectorId of input.sectoresIds) {
+        const activeActor = await this.repository.findActiveBySector(sectorId);
+        if (activeActor) {
+          throw new HttpError(
+            400,
+            `El sector/manzana ya se encuentra asignado al actor social activo: ${activeActor.nombres} ${activeActor.apellidos}`
+          );
+        }
+      }
+    }
+
     const passwordHash = await hashPassword(input.password);
 
     return this.repository.create({
@@ -163,6 +175,18 @@ export class ActoresSocialesService {
     if (input.entidadId && this.repository.findEntidadById) {
       const ent = await this.repository.findEntidadById(input.entidadId);
       if (!ent) throw new HttpError(404, "Entidad no encontrada");
+    }
+
+    if (input.sectoresIds && input.sectoresIds.length > 0) {
+      for (const sectorId of input.sectoresIds) {
+        const activeActor = await this.repository.findActiveBySector(sectorId, id);
+        if (activeActor) {
+          throw new HttpError(
+            400,
+            `El sector/manzana ya se encuentra asignado al actor social activo: ${activeActor.nombres} ${activeActor.apellidos}`
+          );
+        }
+      }
     }
 
     return this.repository.update(id, input);

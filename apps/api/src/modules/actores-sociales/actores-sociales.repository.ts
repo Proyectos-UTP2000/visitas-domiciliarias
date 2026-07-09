@@ -172,4 +172,21 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
       return actor;
     }) as unknown as Promise<ActorSocialRecord>;
   }
+
+  async findActiveBySector(sectorId: string, excludingActorId?: string): Promise<ActorSocialRecord | null> {
+    return this.prisma.actorSocial.findFirst({
+      where: {
+        archivado: false,
+        deletedAt: null,
+        activo: true,
+        ...(excludingActorId ? { id: { not: excludingActorId } } : {}),
+        sectores: {
+          some: { id: sectorId },
+        },
+      },
+      include: {
+        sectores: true,
+      },
+    }) as unknown as Promise<ActorSocialRecord | null>;
+  }
 }
