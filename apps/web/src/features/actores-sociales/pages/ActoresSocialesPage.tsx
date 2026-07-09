@@ -86,6 +86,23 @@ export function ActoresSocialesPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const todayStr = useMemo(() => {
+    const localToday = new Date();
+    const year = localToday.getFullYear();
+    const month = String(localToday.getMonth() + 1).padStart(2, '0');
+    const day = String(localToday.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const yesterdayStr = useMemo(() => {
+    const localYesterday = new Date();
+    localYesterday.setDate(localYesterday.getDate() - 1);
+    const year = localYesterday.getFullYear();
+    const month = String(localYesterday.getMonth() + 1).padStart(2, '0');
+    const day = String(localYesterday.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
   // Filters (List view)
   const [showFilters, setShowFilters] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState("");
@@ -549,18 +566,29 @@ export function ActoresSocialesPage() {
     const isTipoInvalid = !form.tipoActorSocialId;
     const isGrupoInvalid = !form.grupoTrabajoId;
     const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
+    const isFechaNacInvalid = !form.fechaNac || form.fechaNac >= todayStr;
+    const isDireccionInvalid = !form.direccion.trim();
+    const isEmailInvalid = !form.email.trim() || !form.email.includes("@");
+    const isIdiomaInvalid = !form.idiomaOrigen;
+    const isGradoInvalid = !form.gradoInstruccion;
 
-    if (
-      isMuniInvalid ||
-      isDniInvalid ||
-      isNombresInvalid ||
-      isApellidosInvalid ||
-      isCelularInvalid ||
-      isTipoInvalid ||
-      isGrupoInvalid ||
-      isEstablecimientoInvalid
-    ) {
-      setError("Por favor, complete todos los campos obligatorios marcados con *.");
+    const missingFields: string[] = [];
+    if (isMuniInvalid) missingFields.push("Municipalidad");
+    if (isTipoInvalid) missingFields.push("Tipo Actor Social");
+    if (isDniInvalid) missingFields.push("DNI (debe tener exactamente 8 dígitos)");
+    if (isNombresInvalid) missingFields.push("Nombres (consulte DNI)");
+    if (isApellidosInvalid) missingFields.push("Apellidos (consulte DNI)");
+    if (isDireccionInvalid) missingFields.push("Dirección");
+    if (isFechaNacInvalid) missingFields.push("Fecha de Nacimiento (debe ser anterior a la actual)");
+    if (isEmailInvalid) missingFields.push("Correo Electrónico válido");
+    if (isCelularInvalid) missingFields.push("Celular (debe tener exactamente 9 dígitos)");
+    if (isIdiomaInvalid) missingFields.push("Idioma de Origen");
+    if (isGradoInvalid) missingFields.push("Grado de Instrucción");
+    if (isGrupoInvalid) missingFields.push("Grupo de Trabajo");
+    if (isEstablecimientoInvalid) missingFields.push("Establecimiento de Salud");
+
+    if (missingFields.length > 0) {
+      setError(`Por favor, complete todos los campos obligatorios marcados con * y verifique que sean válidos. Campos incorrectos o faltantes: ${missingFields.join(", ")}.`);
       return;
     }
 
@@ -599,9 +627,21 @@ export function ActoresSocialesPage() {
     const isTipoInvalid = !form.tipoActorSocialId;
     const isGrupoInvalid = !form.grupoTrabajoId;
     const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
+    const isDireccionInvalid = !form.direccion.trim();
+    const isEmailInvalid = !form.email.trim() || !form.email.includes("@");
+    const isGradoInvalid = !form.gradoInstruccion;
 
-    if (isCelularInvalid || isTipoInvalid || isGrupoInvalid || isEstablecimientoInvalid) {
-      setError("Por favor, complete todos los campos obligatorios marcados con *.");
+    const missingFields: string[] = [];
+    if (isTipoInvalid) missingFields.push("Tipo Actor Social");
+    if (isDireccionInvalid) missingFields.push("Dirección");
+    if (isEmailInvalid) missingFields.push("Correo Electrónico válido");
+    if (isCelularInvalid) missingFields.push("Celular (debe tener exactamente 9 dígitos)");
+    if (isGradoInvalid) missingFields.push("Grado de Instrucción");
+    if (isGrupoInvalid) missingFields.push("Grupo de Trabajo");
+    if (isEstablecimientoInvalid) missingFields.push("Establecimiento de Salud");
+
+    if (missingFields.length > 0) {
+      setError(`Por favor, complete todos los campos obligatorios marcados con * y verifique que sean válidos. Campos incorrectos o faltantes: ${missingFields.join(", ")}.`);
       return;
     }
 
@@ -622,11 +662,21 @@ export function ActoresSocialesPage() {
         sectoresACorregirIds: form.sectoresACorregirIds,
       };
 
-      const updated = await updateActor(viewingActor.id, payload);
+      let updated = await updateActor(viewingActor.id, payload);
+      let stateChanged = false;
+      if (viewingActor.estado === "BORRADOR") {
+        updated = await setActorEstado(viewingActor.id, "REGISTRADO");
+        stateChanged = true;
+      }
       setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
       setViewingActor(updated);
       setForm(toActorSocialForm(updated));
-      setMessage("Actor social actualizado con éxito.");
+      if (stateChanged) {
+        appendTimeline("Sistema: Estado de registro cambiado a REGISTRADO");
+        setMessage("Actor social actualizado y registrado con éxito.");
+      } else {
+        setMessage("Actor social actualizado con éxito.");
+      }
     } catch (err: any) {
       setError(err.message || "Error al actualizar el actor social.");
     } finally {
@@ -1484,6 +1534,11 @@ export function ActoresSocialesPage() {
                     onChange={(e) => setForm((curr) => ({ ...curr, direccion: e.target.value }))}
                     placeholder="Dirección del actor social"
                   />
+                  {showValidationErrors && !form.direccion.trim() && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      La dirección es obligatoria.
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1492,9 +1547,15 @@ export function ActoresSocialesPage() {
                     type="date"
                     required
                     value={form.fechaNac}
+                    max={yesterdayStr}
                     onChange={(e) => setForm((curr) => ({ ...curr, fechaNac: e.target.value }))}
                     disabled={viewMode === "detail"}
                   />
+                  {showValidationErrors && (!form.fechaNac || form.fechaNac >= todayStr) && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      La fecha de nacimiento debe ser anterior a la fecha actual.
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1506,6 +1567,11 @@ export function ActoresSocialesPage() {
                     onChange={(e) => setForm((curr) => ({ ...curr, email: e.target.value }))}
                     placeholder="correo@ejemplo.com"
                   />
+                  {showValidationErrors && (!form.email.trim() || !form.email.includes("@")) && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      El correo electrónico es obligatorio y debe ser válido.
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1539,6 +1605,11 @@ export function ActoresSocialesPage() {
                       </option>
                     ))}
                   </select>
+                  {showValidationErrors && !form.idiomaOrigen && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      El idioma de origen es obligatorio.
+                    </span>
+                  )}
                 </label>
 
                 <label className="field">
@@ -1555,6 +1626,11 @@ export function ActoresSocialesPage() {
                       </option>
                     ))}
                   </select>
+                  {showValidationErrors && !form.gradoInstruccion && (
+                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                      El grado de instrucción es obligatorio.
+                    </span>
+                  )}
                 </label>
 
                 {/* Status Toggles */}
@@ -1610,16 +1686,23 @@ export function ActoresSocialesPage() {
               
               <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 {user?.rol === "ADMIN_GENERAL" && viewMode === "create" ? (
-                  <AutocompleteSearch
-                    label="Municipalidad"
-                    placeholder="Escribe para buscar municipalidad..."
-                    value={form.municipalidadId}
-                    displayValue={selectedMuniName}
-                    options={municipalidadesOptions}
-                    onChange={(id) => handleMuniChange(id)}
-                    onSearchMore={() => openSearchModal("municipalidad")}
-                    required
-                  />
+                  <>
+                    <AutocompleteSearch
+                      label="Municipalidad"
+                      placeholder="Escribe para buscar municipalidad..."
+                      value={form.municipalidadId}
+                      displayValue={selectedMuniName}
+                      options={municipalidadesOptions}
+                      onChange={(id) => handleMuniChange(id)}
+                      onSearchMore={() => openSearchModal("municipalidad")}
+                      required
+                    />
+                    {showValidationErrors && !form.municipalidadId && (
+                      <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
+                        La municipalidad es obligatoria.
+                      </span>
+                    )}
+                  </>
                 ) : null}
 
                 <AutocompleteSearch
@@ -1632,6 +1715,11 @@ export function ActoresSocialesPage() {
                   onSearchMore={() => openSearchModal("grupo")}
                   required
                 />
+                {showValidationErrors && !form.grupoTrabajoId && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
+                    El grupo de trabajo es obligatorio.
+                  </span>
+                )}
 
                 <p style={{ margin: 0, fontSize: "0.9rem" }}>
                   <strong>Grupo de trabajo/Distrito:</strong><br />
@@ -1678,7 +1766,13 @@ export function ActoresSocialesPage() {
                   options={establecimientosOptions}
                   onChange={(id) => setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }))}
                   onSearchMore={() => openSearchModal("establecimiento")}
+                  required
                 />
+                {showValidationErrors && !form.grupoEstablecimientoId && (
+                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
+                    El establecimiento de salud es obligatorio.
+                  </span>
+                )}
 
                 {/* Sectores relation tags block */}
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", marginTop: "1rem" }}>

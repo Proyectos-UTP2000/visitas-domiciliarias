@@ -117,9 +117,10 @@ export class ActoresSocialesService {
     }
 
     const passwordHash = await hashPassword(input.password);
+    const { password, ...createInput } = input;
 
     return this.repository.create({
-      ...input,
+      ...createInput,
       passwordHash,
       estado: "BORRADOR",
       activo: true,
