@@ -1,207 +1,77 @@
-import { Fragment, useEffect, useMemo, useState, useRef } from "react";
-import { LuSearch, LuSettings, LuChevronLeft, LuChevronRight, LuChevronDown, LuFolder } from "react-icons/lu";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { LuSearch, LuChevronRight, LuChevronDown, LuFolder } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
 import { listTiposActorSocial } from "../../tipos-actor-social/tipos-actor-social-api";
 import type { TipoActorSocialRecord } from "../../tipos-actor-social/tipos-actor-social-types";
 import { listGrupos } from "../../grupos-trabajo/grupos-api";
-import type { GrupoTrabajoRecordWithRelations, GrupoEstablecimientoRecord } from "../../grupos-trabajo/grupos-types";
-import { listEntidades } from "../../entidades/entidades-api";
-import type { EntidadRecord } from "../../entidades/entidades-types";
-import { consultarDni } from "../../dni/dni-api";
-import { listSectores, listCentrosPoblados } from "../../sectores/sectores-api";
-import type { SectorRecord, CentroPobladoRecord } from "../../sectores/sectores-types";
-import {
-  listActores,
-  createActor,
-  updateActor,
-  setActorActivo,
-  setActorEstado,
-  archivarActor,
-  deleteActor,
-  listActorArchivos,
-  uploadActorArchivo,
-  deleteActorArchivo,
-  downloadActorArchivo,
-} from "../actores-sociales-api";
-import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial, ActorSocialArchivo } from "../actores-sociales-types";
-import { emptyActorSocialForm, filterActores, toActorSocialForm } from "../actores-sociales-utils";
+import type { GrupoTrabajoRecordWithRelations } from "../../grupos-trabajo/grupos-types";
+import { listActores } from "../actores-sociales-api";
+import type { ActorSocialRecord } from "../actores-sociales-types";
 import "../actores-sociales.css";
 
-function generateSecurePassword(): string {
-  const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const numbers = "0123456789";
-  const specials = "!@#$%&*";
-  const all = letters + numbers + specials;
-  
-  let pwd = "";
-  pwd += letters.charAt(Math.floor(Math.random() * letters.length));
-  pwd += numbers.charAt(Math.floor(Math.random() * numbers.length));
-  pwd += specials.charAt(Math.floor(Math.random() * specials.length));
-  
-  for (let i = 3; i < 10; i++) {
-    pwd += all.charAt(Math.floor(Math.random() * all.length));
-  }
-  return pwd.split('').sort(() => 0.5 - Math.random()).join('');
-}
-
-const GRADOS_INSTRUCCION = [
-  "Primaria Completa",
-  "Secundaria Completa",
-  "Superior Técnica",
-  "Superior Universitaria Completa",
-  "Superior Universitaria Incompleta",
-  "Postgrado",
-];
-
-const IDIOMAS_ORIGEN = ["Castellano", "Quechua", "Aimara", "Asháninka", "Otro"];
-
-type TimelineItem = {
-  id: string;
-  author: string;
-  date: string;
-  text: string;
-};
-
-import { AutocompleteSearch } from "../../../shared/AutocompleteSearch";
-
 export function ActoresSocialesPage() {
+  const navigate = useNavigate();
   const [user, setUser] = useState<{ rol: string; name?: string; username?: string; municipalidadId: string | null } | null>(null);
   const [actores, setActores] = useState<ActorSocialRecord[]>([]);
   const [municipalidades, setMunicipalidades] = useState<MunicipalidadRecord[]>([]);
   const [tiposActor, setTiposActor] = useState<TipoActorSocialRecord[]>([]);
   const [grupos, setGrupos] = useState<GrupoTrabajoRecordWithRelations[]>([]);
-  const [entidades, setEntidades] = useState<EntidadRecord[]>([]);
-  const [sectores, setSectores] = useState<SectorRecord[]>([]);
-  const [centrosPoblados, setCentrosPoblados] = useState<CentroPobladoRecord[]>([]);
-
-  // Navigation state: "list" | "detail" | "create"
-  const [viewMode, setViewMode] = useState<"list" | "detail" | "create">("list");
 
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState<ActorSocialFormState>(emptyActorSocialForm);
-  const [viewingActor, setViewingActor] = useState<ActorSocialRecord | null>(null);
-  
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showValidationErrors, setShowValidationErrors] = useState(false);
-  const [isSearchingDni, setIsSearchingDni] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  
-  // Attachments and review status states
-  const [archivos, setArchivos] = useState<ActorSocialArchivo[]>([]);
-  const [isObserveModalOpen, setIsObserveModalOpen] = useState(false);
-  const [statusComment, setStatusComment] = useState("");
-  const [isSubmittingEstado, setIsSubmittingEstado] = useState(false);
-
-  const todayStr = useMemo(() => {
-    const localToday = new Date();
-    const year = localToday.getFullYear();
-    const month = String(localToday.getMonth() + 1).padStart(2, '0');
-    const day = String(localToday.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }, []);
-
-  const yesterdayStr = useMemo(() => {
-    const localYesterday = new Date();
-    localYesterday.setDate(localYesterday.getDate() - 1);
-    const year = localYesterday.getFullYear();
-    const month = String(localYesterday.getMonth() + 1).padStart(2, '0');
-    const day = String(localYesterday.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }, []);
 
   // Filters (List view)
   const [showFilters, setShowFilters] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState("");
   const [muniFilter, setMuniFilter] = useState("");
 
-  const isFiltering = estadoFilter !== "" || muniFilter !== "";
-
-  useEffect(() => {
-    if (!showFilters) return;
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (!target.closest(".admin-filters-panel") && !target.closest(".admin-button.is-ghost")) {
-        setShowFilters(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showFilters]);
-
-  // Deletion logic with reason
-  const [isReasonModalOpen, setIsReasonModalOpen] = useState(false);
-  const [deleteReason, setDeleteReason] = useState("");
-  const [actorToDelete, setActorToDelete] = useState<string | null>(null);
-
-  // Detail/Create Page States
-  const [activeTab, setActiveTab] = useState<"registros" | "manzanas" | "otros_docs">("registros");
-  const [chatInput, setChatInput] = useState("");
-  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [manzanasPage, setManzanasPage] = useState(0);
-
-  // Gear Settings menu
-  const [isGearMenuOpen, setIsGearMenuOpen] = useState(false);
-
-  // Advanced search modal
-  const [searchModalConfig, setSearchModalConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    type: "municipalidad" | "grupo" | "centro_poblado" | "centro_poblado_rural" | "establecimiento";
-    query: string;
-    page: number;
-  }>({
-    isOpen: false,
-    title: "",
-    type: "municipalidad",
-    query: "",
-    page: 0,
-  });
-
-  // Custom confirmation modal
-  const [confirmConfig, setConfirmConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void | Promise<void>;
-  }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: () => {},
-  });
-
+  // Table options
+  const [sortKey, setSortKey] = useState("apellidos");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [groupBy, setGroupBy] = useState("");
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  function toggleGroupCollapse(groupName: string) {
-    setCollapsedGroups((curr) => ({
-      ...curr,
-      [groupName]: !curr[groupName],
-    }));
+  useEffect(() => {
+    const session = getStoredSession();
+    if (session) {
+      setUser(session.user);
+      if (session.user.rol === "ADMIN_MUNICIPAL") {
+        setMuniFilter(session.user.municipalidadId || "");
+      }
+    }
+    void loadData();
+  }, []);
+
+  async function loadData() {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const session = getStoredSession();
+      const userMuniId = session?.user.rol === "ADMIN_MUNICIPAL" ? session.user.municipalidadId : null;
+
+      const [actData, munData, tipData, grupData] = await Promise.all([
+        listActores(userMuniId),
+        listMunicipalidades(),
+        listTiposActorSocial(),
+        listGrupos(userMuniId),
+      ]);
+
+      setActores(actData);
+      setMunicipalidades(munData);
+      setTiposActor(tipData);
+      setGrupos(grupData);
+    } catch (err: any) {
+      setError(err.message || "Error al cargar la información inicial.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  const filteredActores = useMemo(() => {
-    return filterActores(actores, query, muniFilter, estadoFilter);
-  }, [actores, query, muniFilter, estadoFilter]);
-
-  const establishmentsMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    grupos.forEach((g) => {
-      g.establecimientos?.forEach((e) => {
-        map[e.id] = e.nombre;
-      });
-    });
-    return map;
-  }, [grupos]);
-
-  // Map municipalidades for fast ID -> Name lookups
   const munisMap = useMemo(() => {
     const map: Record<string, string> = {};
     municipalidades.forEach((m) => {
@@ -218,719 +88,117 @@ export function ActoresSocialesPage() {
     return map;
   }, [tiposActor]);
 
-  const gruposMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    grupos.forEach((g) => {
-      map[g.id] = `${g.nombreGrupo} (${g.periodoYear})`;
-    });
-    return map;
-  }, [grupos]);
+  function handleSort(key: string) {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortOrder("asc");
+    }
+  }
 
-  const entidadesMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    entidades.forEach((e) => {
-      map[e.id] = e.nombre;
+  function getSortIcon(key: string) {
+    if (sortKey !== key) return null;
+    return sortOrder === "asc" ? " ▲" : " ▼";
+  }
+
+  // Filtered & Sorted actors list
+  const filteredActores = useMemo(() => {
+    return actores.filter((a) => {
+      // 1. Search Query DNI/Nombres/Apellidos
+      const q = query.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        a.dni.includes(q) ||
+        a.nombres.toLowerCase().includes(q) ||
+        a.apellidos.toLowerCase().includes(q);
+
+      // 2. Status Filter
+      const matchEstado = !estadoFilter || a.estado === estadoFilter;
+
+      // 3. Municipality Filter
+      const matchMuni = !muniFilter || a.municipalidadId === muniFilter;
+
+      return matchQuery && matchEstado && matchMuni;
     });
-    return map;
-  }, [entidades]);
+  }, [actores, query, estadoFilter, muniFilter]);
 
   const sortedActores = useMemo(() => {
-    if (!sortConfig) return filteredActores;
-    return [...filteredActores].sort((a: any, b: any) => {
+    const sorted = [...filteredActores];
+    sorted.sort((a, b) => {
       let aVal = "";
       let bVal = "";
 
-      if (sortConfig.key === "municipalidad") {
-        aVal = munisMap[a.municipalidadId] || "";
-        bVal = munisMap[b.municipalidadId] || "";
-      } else if (sortConfig.key === "nombreCompleto") {
-        aVal = `${a.apellidoPaterno} ${a.apellidoMaterno} ${a.nombres}`;
-        bVal = `${b.apellidoPaterno} ${b.apellidoMaterno} ${b.nombres}`;
-      } else if (sortConfig.key === "tipoActor") {
+      if (sortKey === "dni") {
+        aVal = a.dni;
+        bVal = b.dni;
+      } else if (sortKey === "nombres") {
+        aVal = a.nombres;
+        bVal = b.nombres;
+      } else if (sortKey === "apellidos") {
+        aVal = a.apellidos;
+        bVal = b.apellidos;
+      } else if (sortKey === "tipoActor") {
         aVal = tiposMap[a.tipoActorSocialId] || "";
         bVal = tiposMap[b.tipoActorSocialId] || "";
-      } else if (sortConfig.key === "establecimiento") {
-        aVal = (a.grupoEstablecimientoId && establishmentsMap[a.grupoEstablecimientoId]) || "";
-        bVal = (b.grupoEstablecimientoId && establishmentsMap[b.grupoEstablecimientoId]) || "";
-      } else {
-        aVal = a[sortConfig.key] || "";
-        bVal = b[sortConfig.key] || "";
+      } else if (sortKey === "municipalidad") {
+        aVal = munisMap[a.municipalidadId] || "";
+        bVal = munisMap[b.municipalidadId] || "";
+      } else if (sortKey === "establecimiento") {
+        const estA = a.grupoEstablecimientoId
+          ? (grupos.flatMap(g => g.establecimientos || []).find(e => e.id === a.grupoEstablecimientoId)?.nombre || "")
+          : "";
+        const estB = b.grupoEstablecimientoId
+          ? (grupos.flatMap(g => g.establecimientos || []).find(e => e.id === b.grupoEstablecimientoId)?.nombre || "")
+          : "";
+        aVal = estA;
+        bVal = estB;
       }
 
-      const aStr = String(aVal).toLowerCase().trim();
-      const bStr = String(bVal).toLowerCase().trim();
-
-      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
+      return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
-  }, [filteredActores, sortConfig, munisMap, tiposMap, establishmentsMap]);
+    return sorted;
+  }, [filteredActores, sortKey, sortOrder, tiposMap, munisMap, grupos]);
 
+  // Grouped actors
   const groupedActores = useMemo(() => {
     if (!groupBy) return null;
-    const groups: Record<string, ActorSocialRecord[]> = {};
+    const groupsMap: Record<string, ActorSocialRecord[]> = {};
+
     sortedActores.forEach((r) => {
-      let groupKey = "";
+      let groupKey = "Otros";
       if (groupBy === "municipalidad") {
         groupKey = munisMap[r.municipalidadId] || "Sin Municipalidad";
       } else if (groupBy === "tipoActor") {
         groupKey = tiposMap[r.tipoActorSocialId] || "Sin Tipo";
       } else if (groupBy === "establecimiento") {
-        groupKey = (r.grupoEstablecimientoId && establishmentsMap[r.grupoEstablecimientoId]) || "Sin Establecimiento";
+        groupKey = r.grupoEstablecimientoId
+          ? (grupos.flatMap(g => g.establecimientos || []).find(e => e.id === r.grupoEstablecimientoId)?.nombre || "Sin Establecimiento")
+          : "Sin Establecimiento";
       }
-      if (!groups[groupKey]) {
-        groups[groupKey] = [];
+
+      if (!groupsMap[groupKey]) {
+        groupsMap[groupKey] = [];
       }
-      groups[groupKey].push(r);
+      groupsMap[groupKey].push(r);
     });
-    return groups;
-  }, [sortedActores, groupBy, munisMap, tiposMap, establishmentsMap]);
 
-  function handleSort(key: string) {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  }
+    return groupsMap;
+  }, [sortedActores, groupBy, munisMap, tiposMap, grupos]);
 
-  function getSortIcon(key: string) {
-    if (!sortConfig || sortConfig.key !== key) return " ↕";
-    return sortConfig.direction === "asc" ? " ▲" : " ▼";
-  }
-
-  // Options lists for Autocomplete
-  const municipalidadesOptions = useMemo(() => {
-    return municipalidades.map((m) => ({
-      id: m.id,
-      name: m.nombre,
-      subtext: `${m.departamento} > ${m.provincia} > ${m.distrito}`,
-      raw: m,
-    }));
-  }, [municipalidades]);
-
-  const gruposOptions = useMemo(() => {
-    return grupos
-      .filter((g) => g.municipalidadId === form.municipalidadId && g.activo && !g.archivado && g.estado === "APROBADO")
-      .map((g) => ({
-        id: g.id,
-        name: g.nombreGrupo,
-        subtext: `Año: ${g.periodoYear} | Rep: ${g.nombreRepresentante} ${g.apellidosRepresentante}`,
-        raw: g,
-      }));
-  }, [grupos, form.municipalidadId]);
-
-  const urbanCentroPobladosOptions = useMemo(() => {
-    const muniId = form.municipalidadId;
-    if (!muniId) return [];
-    return centrosPoblados
-      .filter((cp) => cp.municipalidadId === muniId && cp.tipo === "URBANO" && cp.activo && !cp.archivado)
-      .map((cp) => ({
-        id: cp.id,
-        name: cp.nombre,
-        subtext: cp.codigo ? `Ubigeo: ${cp.codigo}` : "Centro Poblado Urbano",
-        raw: cp,
-      }));
-  }, [centrosPoblados, form.municipalidadId]);
-
-  const ruralCentroPobladosOptions = useMemo(() => {
-    const muniId = form.municipalidadId;
-    if (!muniId) return [];
-    return centrosPoblados
-      .filter((cp) => cp.municipalidadId === muniId && cp.tipo === "RURAL" && cp.activo && !cp.archivado)
-      .map((cp) => ({
-        id: cp.id,
-        name: cp.nombre,
-        subtext: cp.codigo ? `Ubigeo: ${cp.codigo}` : "Centro Poblado Rural",
-        raw: cp,
-      }));
-  }, [centrosPoblados, form.municipalidadId]);
-
-  const selectedCpUrbanoName = useMemo(() => {
-    const cp = centrosPoblados.find((c) => c.id === form.centroPobladoId);
-    return cp && cp.tipo === "URBANO" ? cp.nombre : "";
-  }, [centrosPoblados, form.centroPobladoId]);
-
-  const selectedCpRuralName = useMemo(() => {
-    const cp = centrosPoblados.find((c) => c.id === form.centroPobladoId);
-    return cp && cp.tipo === "RURAL" ? cp.nombre : "";
-  }, [centrosPoblados, form.centroPobladoId]);
-
-  const establecimientosOptions = useMemo(() => {
-    const selectedGroup = grupos.find((g) => g.id === form.grupoTrabajoId);
-    if (!selectedGroup) return [];
-    const ests = selectedGroup.establecimientos || [];
-    return ests.map((est) => ({
-      id: est.id,
-      name: est.nombre,
-      subtext: est.codigo ? `Código: ${est.codigo}` : undefined,
-      raw: est,
-    }));
-  }, [grupos, form.grupoTrabajoId]);
-
-  // Selected names for autocomplete displays
-  const selectedMuniName = useMemo(() => {
-    const m = municipalidades.find((m) => m.id === form.municipalidadId);
-    return m ? m.nombre : "";
-  }, [municipalidades, form.municipalidadId]);
-
-  const selectedGrupoName = useMemo(() => {
-    const g = grupos.find((g) => g.id === form.grupoTrabajoId);
-    return g ? g.nombreGrupo : "";
-  }, [grupos, form.grupoTrabajoId]);
-
-  const selectedEstablecimientoName = useMemo(() => {
-    const selectedGroup = grupos.find((g) => g.id === form.grupoTrabajoId);
-    if (!selectedGroup) return "";
-    const est = selectedGroup.establecimientos?.find((e) => e.id === form.grupoEstablecimientoId);
-    return est ? est.nombre : "";
-  }, [grupos, form.grupoTrabajoId, form.grupoEstablecimientoId]);
-
-  const sectoresAsignadosAOtros = useMemo(() => {
-    const map: Record<string, { actorName: string; actorId: string }> = {};
-    actores.forEach((act) => {
-      if (act.activo && !act.archivado && (!viewingActor || act.id !== viewingActor.id)) {
-        act.sectores?.forEach((sec: any) => {
-          map[sec.id] = {
-            actorName: `${act.nombres} ${act.apellidos}`,
-            actorId: act.id,
-          };
-        });
-      }
-    });
-    return map;
-  }, [actores, viewingActor]);
-
-  // Manzanas/Urban sectors available for assignment in this municipalidad
-  const availableManzanas = useMemo(() => {
-    const muniId = form.municipalidadId;
-    if (!muniId) return [];
-    let filtered = sectores.filter((s) => s.municipalidadId === muniId && s.tipoSector === "URBANO" && s.activo && !s.archivado);
-    if (form.centroPobladoId) {
-      filtered = filtered.filter((s) => s.centroPobladoId === form.centroPobladoId);
-    }
-    return filtered;
-  }, [sectores, form.municipalidadId, form.centroPobladoId]);
-
-  const paginatedManzanas = useMemo(() => {
-    const start = manzanasPage * 20;
-    return availableManzanas.slice(start, start + 20);
-  }, [availableManzanas, manzanasPage]);
-
-  // Selected entidad details (read-only Tipo de Entidad display)
-  const selectedEntidadTipo = useMemo(() => {
-    if (!form.entidadId) return "";
-    const ent = entidades.find((e) => e.id === form.entidadId);
-    return ent ? ent.tipoEntidad : "";
-  }, [entidades, form.entidadId]);
-
-  // Selected group of work details (read-only Distrito display)
-  const selectedGrupoDistrito = useMemo(() => {
-    if (!form.grupoTrabajoId) return "";
-    const g = grupos.find((gr) => gr.id === form.grupoTrabajoId);
-    if (!g) return "";
-    const muni = municipalidades.find((m) => m.id === g.municipalidadId);
-    return muni ? `${muni.distrito} (PE)` : "";
-  }, [grupos, municipalidades, form.grupoTrabajoId]);
-
-  useEffect(() => {
-    const session = getStoredSession();
-    if (session) {
-      setUser(session.user);
-      if (session.user.rol === "ADMIN_MUNICIPAL") {
-        setMuniFilter(session.user.municipalidadId || "");
-      }
-    }
-    void loadData();
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setViewMode("list");
-        setIsReasonModalOpen(false);
-        setSearchModalConfig((curr) => ({ ...curr, isOpen: false }));
-        setConfirmConfig((curr) => ({ ...curr, isOpen: false }));
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  async function loadData() {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const session = getStoredSession();
-      const userMuniId = session?.user?.rol === "ADMIN_MUNICIPAL" ? session.user.municipalidadId : null;
-
-      const [actData, munData, tipData, grupData, entData, sectoresData, cpData] = await Promise.all([
-        listActores(userMuniId),
-        listMunicipalidades(),
-        listTiposActorSocial(),
-        listGrupos(userMuniId),
-        listEntidades(),
-        listSectores(userMuniId),
-        listCentrosPoblados(),
-      ]);
-
-      setActores(actData);
-      setMunicipalidades(munData);
-      setTiposActor(tipData.filter((t) => t.activo && !t.archivado));
-      setGrupos(grupData);
-      setEntidades(entData.filter((e) => e.activo && !e.archivado));
-      setSectores(sectoresData);
-      setCentrosPoblados(cpData);
-    } catch (err: any) {
-      setError(err.message || "Error al cargar la información inicial.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleDniLookup() {
-    const dni = form.dni.trim();
-    if (!/^\d{8}$/.test(dni)) {
-      setError("El DNI debe tener exactamente 8 dígitos.");
-      return;
-    }
-    setIsSearchingDni(true);
-    setError(null);
-    try {
-      const datos = await consultarDni(dni);
-      setForm((curr) => ({
-        ...curr,
-        nombres: datos.nombres,
-        apellidos: `${datos.ape_paterno} ${datos.ape_materno}`,
-        username: dni,
-      }));
-    } catch (err: any) {
-      setError(err.message || "No se encontró el DNI o hubo un error al realizar la consulta.");
-    } finally {
-      setIsSearchingDni(false);
-    }
-  }
-
-  function handleMuniChange(muniId: string) {
-    setForm((curr) => ({
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
       ...curr,
-      municipalidadId: muniId,
-      grupoTrabajoId: "",
-      grupoEstablecimientoId: "",
+      [groupName]: !curr[groupName],
     }));
   }
 
   function handleAddClick() {
-    setError(null);
-    setMessage(null);
-    setViewingActor(null);
-    setArchivos([]);
-    setShowValidationErrors(false);
-    const initialPass = generateSecurePassword();
-    setForm({
-      ...emptyActorSocialForm,
-      municipalidadId: user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : "",
-      password: initialPass,
-    });
-    setTimeline([
-      {
-        id: "1",
-        author: user?.name || user?.username || "Supervisor",
-        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: "Creando un nuevo registro...",
-      }
-    ]);
-    setViewMode("create");
+    navigate("/actores-sociales/nuevo");
   }
 
   function handleRowClick(actor: ActorSocialRecord) {
-    setError(null);
-    setMessage(null);
-    setViewingActor(actor);
-    setArchivos(actor.archivos || []);
-    setForm(toActorSocialForm(actor));
-    setShowValidationErrors(false);
-    setTimeline([
-      {
-        id: "1",
-        author: "Sistema",
-        date: "Hoy",
-        text: `Visualizando registro del actor social. Estado actual: ${actor.estado}.`,
-      }
-    ]);
-    setManzanasPage(0);
-    setActiveTab(actor.estado === "BORRADOR" ? "registros" : actor.estado === "REGISTRADO" || actor.estado === "VALIDADO" ? "otros_docs" : "registros");
-    setViewMode("detail");
-  }
-
-  async function saveActorData(advanceState: boolean) {
-    setError(null);
-    setMessage(null);
-    setShowValidationErrors(true);
-
-    const resolvedMuniId = user?.rol === "ADMIN_MUNICIPAL" ? (user.municipalidadId || "") : form.municipalidadId;
-    const isMuniInvalid = user?.rol === "ADMIN_GENERAL" && !form.municipalidadId;
-    const isDniInvalid = !/^\d{8}$/.test(form.dni);
-    const isNombresInvalid = !form.nombres.trim();
-    const isApellidosInvalid = !form.apellidos.trim();
-    const isCelularInvalid = !/^\d{9}$/.test(form.celular);
-    const isTipoInvalid = !form.tipoActorSocialId;
-    const isGrupoInvalid = !form.grupoTrabajoId;
-    const isEstablecimientoInvalid = !form.grupoEstablecimientoId;
-    const isDireccionInvalid = !form.direccion.trim();
-    const isEmailInvalid = !form.email.trim() || !form.email.includes("@");
-    const isIdiomaInvalid = !form.idiomaOrigen;
-    const isGradoInvalid = !form.gradoInstruccion;
-
-    const missingFields: string[] = [];
-    if (isMuniInvalid) missingFields.push("Municipalidad");
-    if (isTipoInvalid) missingFields.push("Tipo Actor Social");
-    if (isDniInvalid) missingFields.push("DNI (debe tener exactamente 8 dígitos)");
-    if (isNombresInvalid) missingFields.push("Nombres (consulte DNI)");
-    if (isApellidosInvalid) missingFields.push("Apellidos (consulte DNI)");
-    if (isDireccionInvalid) missingFields.push("Dirección");
-    if (viewMode === "create" && (!form.fechaNac || form.fechaNac >= todayStr)) {
-      missingFields.push("Fecha de Nacimiento (debe ser anterior a la actual)");
-    }
-    if (isEmailInvalid) missingFields.push("Correo Electrónico válido");
-    if (isCelularInvalid) missingFields.push("Celular (debe tener exactamente 9 dígitos)");
-    if (isIdiomaInvalid) missingFields.push("Idioma de Origen");
-    if (isGradoInvalid) missingFields.push("Grado de Instrucción");
-    if (isGrupoInvalid) missingFields.push("Grupo de Trabajo");
-    if (isEstablecimientoInvalid) missingFields.push("Establecimiento de Salud");
-
-    if (missingFields.length > 0) {
-      setError(`Por favor, complete todos los campos obligatorios marcados con * y verifique que sean válidos. Campos incorrectos o faltantes: ${missingFields.join(", ")}.`);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      if (viewMode === "create") {
-        const payload = {
-          ...form,
-          entidadId: form.entidadId || null,
-          grupoEstablecimientoId: form.grupoEstablecimientoId || null,
-          centroPobladoId: form.centroPobladoId || null,
-        } as any;
-        
-        let created = await createActor(payload);
-        if (advanceState) {
-          created = await setActorEstado(created.id, "REGISTRADO");
-        }
-        setActores((curr) => [created, ...curr]);
-        setViewingActor(created);
-        setForm(toActorSocialForm(created));
-        setViewMode("detail");
-        setArchivos(created.archivos || []);
-        setActiveTab(advanceState ? "otros_docs" : "registros");
-        setMessage(advanceState ? "Actor social registrado con éxito." : "Borrador de actor social guardado con éxito.");
-      } else if (viewMode === "detail" && viewingActor) {
-        const payload = {
-          tipoActorSocialId: form.tipoActorSocialId,
-          grupoTrabajoId: form.grupoTrabajoId,
-          grupoEstablecimientoId: form.grupoEstablecimientoId || null,
-          entidadId: form.entidadId || null,
-          email: form.email.trim(),
-          celular: form.celular.trim(),
-          direccion: form.direccion.trim(),
-          centroPobladoId: form.centroPobladoId || null,
-          gradoInstruccion: form.gradoInstruccion,
-          inactivadoPermanentemente: form.inactivadoPermanentemente,
-          sectoresIds: form.sectoresIds,
-          sectoresACorregirIds: form.sectoresACorregirIds,
-        };
-
-        let updated = await updateActor(viewingActor.id, payload);
-        if (advanceState) {
-          const nextState = viewingActor.estado === "BORRADOR" ? "REGISTRADO" : "VALIDADO";
-          updated = await setActorEstado(viewingActor.id, nextState);
-          appendTimeline(`Sistema: Estado de registro cambiado a ${nextState}`);
-          setMessage(`Actor social actualizado y avanzado a estado ${nextState === "VALIDADO" ? "VALIDADO" : "REGISTRADO"} con éxito.`);
-        } else {
-          setMessage("Actor social actualizado con éxito.");
-        }
-        setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
-        setViewingActor(updated);
-        setForm(toActorSocialForm(updated));
-        setArchivos(updated.archivos || []);
-        if (advanceState) {
-          setActiveTab("otros_docs");
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || "Error al guardar el actor social.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleTransitionEstado(actor: ActorSocialRecord, nextEstado: EstadoActorSocial, obsComment?: string) {
-    setError(null);
-    setMessage(null);
-    setIsSubmittingEstado(true);
-    try {
-      const updated = await setActorEstado(actor.id, nextEstado, obsComment || null);
-      setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
-      setForm(toActorSocialForm(updated));
-      setViewingActor(updated);
-      setArchivos(updated.archivos || []);
-      appendTimeline(`Sistema: Estado de registro cambiado a ${nextEstado}${obsComment ? ` (Observación: ${obsComment})` : ""}`);
-      setMessage(`Estado del actor social actualizado a ${nextEstado === "VALIDADO" ? "VALIDADO" : nextEstado} con éxito.`);
-      setIsObserveModalOpen(false);
-      setStatusComment("");
-    } catch (err: any) {
-      setError(err.message || "Error al cambiar el estado de registro.");
-    } finally {
-      setIsSubmittingEstado(false);
-    }
-  }
-
-  async function handleToggleActivoDirect(actor: ActorSocialRecord) {
-    const nextActivo = !actor.activo;
-    setError(null);
-    setMessage(null);
-    try {
-      const updated = await setActorActivo(actor.id, nextActivo);
-      setActores((curr) => curr.map((a) => (a.id === updated.id ? updated : a)));
-      setForm((curr) => ({ ...curr, activo: nextActivo }));
-      if (viewingActor?.id === actor.id) {
-        setViewingActor(updated);
-      }
-      appendTimeline(`Sistema: Estado activo cambiado a ${nextActivo ? "Activo" : "Inactivo"}`);
-      setMessage(`Actor social ${nextActivo ? "activado" : "desactivado"} correctamente.`);
-    } catch (err: any) {
-      setError(err.message || "Error al cambiar estado activo.");
-    }
-  }
-
-
-
-  async function handleArchivar(actor: ActorSocialRecord) {
-    setError(null);
-    setMessage(null);
-    try {
-      const updated = await archivarActor(actor.id);
-      setActores((curr) => curr.filter((a) => a.id !== updated.id));
-      setViewMode("list");
-      setViewingActor(null);
-      setMessage("Actor social archivado con éxito.");
-    } catch (err: any) {
-      setError(err.message || "Error al archivar el actor social.");
-    }
-  }
-
-  function openDeleteReasonModal(actorId: string) {
-    setError(null);
-    setMessage(null);
-    setActorToDelete(actorId);
-    setDeleteReason("");
-    setIsReasonModalOpen(true);
-  }
-
-  async function handleDeleteSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!actorToDelete || !deleteReason.trim()) return;
-
-    setError(null);
-    setMessage(null);
-    try {
-      const result = await deleteActor(actorToDelete, deleteReason);
-      setActores((curr) => curr.filter((a) => a.id !== result.id));
-      setIsReasonModalOpen(false);
-      setViewMode("list");
-      setViewingActor(null);
-      setActorToDelete(null);
-      setMessage(result.notificationMessage || "Actor social eliminado lógicamente.");
-    } catch (err: any) {
-      setError(err.message || "Error al eliminar el actor social.");
-    }
-  }
-
-  function appendTimeline(text: string) {
-    setTimeline((curr) => [
-      ...curr,
-      {
-        id: Math.random().toString(),
-        author: user?.name || user?.username || "Supervisor",
-        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text,
-      }
-    ]);
-  }
-
-  function handleSendNote() {
-    if (!chatInput.trim()) return;
-    appendTimeline(chatInput);
-    setChatInput("");
-  }
-
-  // Sector Manzanas Assignments in Tab
-  function handleToggleManzanaAssignment(sectorId: string) {
-    setForm((curr) => {
-      const nextSectores = [...curr.sectoresIds];
-      const index = nextSectores.indexOf(sectorId);
-      if (index > -1) {
-        nextSectores.splice(index, 1);
-      } else {
-        nextSectores.push(sectorId);
-      }
-      return {
-        ...curr,
-        sectoresIds: nextSectores,
-      };
-    });
-  }
-
-  // Remove tag manually
-  function handleRemoveSectorTag(sectorId: string) {
-    setForm((curr) => ({
-      ...curr,
-      sectoresIds: curr.sectoresIds.filter((id) => id !== sectorId),
-    }));
-  }
-
-  // Custom Autocomplete Search Modal Trigger
-  function openSearchModal(type: "municipalidad" | "grupo" | "centro_poblado" | "centro_poblado_rural" | "establecimiento") {
-    let title = "";
-    if (type === "municipalidad") title = "Buscar: Municipalidad";
-    if (type === "grupo") title = "Buscar: Grupo de Trabajo";
-    if (type === "centro_poblado") title = "Buscar: Centro Poblado";
-    if (type === "centro_poblado_rural") title = "Buscar: Centro Poblado Rural";
-    if (type === "establecimiento") title = "Buscar: Establecimiento de Salud";
-
-    setSearchModalConfig({
-      isOpen: true,
-      title,
-      type,
-      query: "",
-      page: 0,
-    });
-  }
-
-  // Advanced Search Modal list logic
-  const modalFilteredItems = useMemo(() => {
-    const q = searchModalConfig.query.toLowerCase().trim();
-    const type = searchModalConfig.type;
-
-    if (type === "municipalidad") {
-      const filtered = municipalidades.filter(
-        (m) =>
-          m.nombre.toLowerCase().includes(q) ||
-          m.distrito.toLowerCase().includes(q) ||
-          m.provincia.toLowerCase().includes(q)
-      );
-      return filtered.map((m) => ({
-        id: m.id,
-        cols: [m.departamento, m.provincia, m.distrito, m.ubigeo, m.nombre],
-        raw: m,
-      }));
-    }
-
-    if (type === "grupo") {
-      const filtered = grupos.filter(
-        (g) =>
-          g.estado === "APROBADO" &&
-          g.municipalidadId === form.municipalidadId &&
-          (g.nombreGrupo.toLowerCase().includes(q) ||
-            g.nombreRepresentante.toLowerCase().includes(q) ||
-            g.apellidosRepresentante.toLowerCase().includes(q))
-      );
-      return filtered.map((g) => ({
-        id: g.id,
-        cols: [g.nombreGrupo, String(g.periodoYear), `${g.nombreRepresentante} ${g.apellidosRepresentante}`, g.estado],
-        raw: g,
-      }));
-    }
-
-    if (type === "centro_poblado") {
-      const filtered = centrosPoblados.filter(
-        (cp) =>
-          cp.municipalidadId === form.municipalidadId &&
-          cp.tipo === "URBANO" &&
-          cp.activo &&
-          !cp.archivado &&
-          (cp.nombre.toLowerCase().includes(q) || (cp.codigo && cp.codigo.toLowerCase().includes(q)))
-      );
-      const muni = municipalidades.find((m) => m.id === form.municipalidadId);
-      return filtered.map((cp) => ({
-        id: cp.id,
-        cols: [
-          muni?.departamento || "",
-          muni?.provincia || "",
-          muni?.distrito || "",
-          cp.codigo || "",
-          cp.nombre,
-          "Urbano",
-        ],
-        raw: cp,
-      }));
-    }
-
-    if (type === "centro_poblado_rural") {
-      const filtered = centrosPoblados.filter(
-        (cp) =>
-          cp.municipalidadId === form.municipalidadId &&
-          cp.tipo === "RURAL" &&
-          cp.activo &&
-          !cp.archivado &&
-          (cp.nombre.toLowerCase().includes(q) || (cp.codigo && cp.codigo.toLowerCase().includes(q)))
-      );
-      const muni = municipalidades.find((m) => m.id === form.municipalidadId);
-      return filtered.map((cp) => ({
-        id: cp.id,
-        cols: [
-          muni?.departamento || "",
-          muni?.provincia || "",
-          muni?.distrito || "",
-          cp.codigo || "",
-          cp.nombre,
-          "Rural",
-        ],
-        raw: cp,
-      }));
-    }
-
-    if (type === "establecimiento") {
-      const selectedGroup = grupos.find((g) => g.id === form.grupoTrabajoId);
-      if (!selectedGroup) return [];
-      const ests = selectedGroup.establecimientos || [];
-      const filtered = ests.filter((e) => e.nombre.toLowerCase().includes(q) || (e.codigo && e.codigo.includes(q)));
-      return filtered.map((e) => ({
-        id: e.id,
-        cols: [e.nombre, e.codigo || "-", e.direccion || "-"],
-        raw: e,
-      }));
-    }
-
-    return [];
-  }, [searchModalConfig, municipalidades, grupos, sectores, form.municipalidadId, form.grupoTrabajoId]);
-
-  const modalPaginatedItems = useMemo(() => {
-    const start = searchModalConfig.page * 10;
-    return modalFilteredItems.slice(start, start + 10);
-  }, [modalFilteredItems, searchModalConfig.page]);
-
-  function handleModalSelect(id: string, name: string, raw: any) {
-    if (searchModalConfig.type === "municipalidad") {
-      handleMuniChange(id);
-    } else if (searchModalConfig.type === "grupo") {
-      setForm((curr) => ({ ...curr, grupoTrabajoId: id, grupoEstablecimientoId: "" }));
-    } else if (searchModalConfig.type === "centro_poblado") {
-      setForm((curr) => ({
-        ...curr,
-        centroPobladoId: id,
-      }));
-    } else if (searchModalConfig.type === "centro_poblado_rural") {
-      setForm((curr) => ({
-        ...curr,
-        centroPobladoId: id,
-      }));
-    } else if (searchModalConfig.type === "establecimiento") {
-      setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }));
-    }
-
-    setSearchModalConfig((curr) => ({ ...curr, isOpen: false }));
+    navigate(`/actores-sociales/${actor.id}`);
   }
 
   function renderRow(a: ActorSocialRecord) {
@@ -959,30 +227,28 @@ export function ActoresSocialesPage() {
     );
   }
 
-  // Render List View
-  if (viewMode === "list") {
-    return (
-      <>
-        <div className="admin-page-heading">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <button className="admin-button is-primary" onClick={handleAddClick} style={{ backgroundColor: "#71639e", color: "white" }} type="button">
-              Nuevo
-            </button>
-            <h1 style={{ margin: 0, fontSize: "1.5rem" }}>Registro de Actores Sociales</h1>
-          </div>
+  return (
+    <>
+      <div className="admin-page-heading">
+        <div className="flex-center-gap">
+          <button className="admin-button is-primary" onClick={handleAddClick} style={{ backgroundColor: "#71639e", color: "white" }} type="button">
+            Nuevo
+          </button>
+          <h1 className="h1-no-margin">Registro de Actores Sociales</h1>
         </div>
+      </div>
 
-        <section className="admin-content-card" aria-label="Listado de Actores Sociales" style={{ padding: "1.5rem", borderRadius: "0.55rem", border: "1px solid var(--border)", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          {error && (
-            <div className="admin-alert is-error" style={{ marginBottom: "1.25rem" }}>
-              {error}
-            </div>
-          )}
-          {message && (
-            <div className="admin-alert is-success" style={{ marginBottom: "1.25rem" }}>
-              {message}
-            </div>
-          )}
+      <section className="admin-content-card" aria-label="Listado de Actores Sociales" style={{ padding: "1.5rem", borderRadius: "0.55rem", border: "1px solid var(--border)", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+        {error && (
+          <div className="admin-alert is-error admin-alert-margin">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="admin-alert is-success admin-alert-margin">
+            {message}
+          </div>
+        )}
 
         <div style={{ position: "relative" }}>
           <div className="admin-actions-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
@@ -1050,31 +316,12 @@ export function ActoresSocialesPage() {
                 width: "300px",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "0.5rem", marginBottom: "0.25rem" }}>
-                <span style={{ fontWeight: "bold", fontSize: "0.9rem", color: "var(--text)" }}>Filtros</span>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(false)}
-                  style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: "1.1rem", color: "var(--muted)", padding: 0 }}
-                >
-                  ×
-                </button>
-              </div>
               {user?.rol === "ADMIN_GENERAL" && (
-                <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
-                  Municipalidad
+                <label className="field">
+                  <span>Municipalidad</span>
                   <select
                     value={muniFilter}
                     onChange={(e) => setMuniFilter(e.target.value)}
-                    style={{
-                      width: "100%",
-                      height: "38px",
-                      background: "white",
-                      color: "#333",
-                      border: "1px solid #ccc",
-                      borderRadius: "0.25rem",
-                      padding: "0 0.5rem",
-                    }}
                   >
                     <option value="">Todas</option>
                     {municipalidades.map((m) => (
@@ -1086,1324 +333,101 @@ export function ActoresSocialesPage() {
                 </label>
               )}
 
-              <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: 0, fontSize: "0.85rem", fontWeight: 600, color: "var(--text)" }}>
-                Estado
+              <label className="field">
+                <span>Estado</span>
                 <select
                   value={estadoFilter}
                   onChange={(e) => setEstadoFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    height: "38px",
-                    background: "white",
-                    color: "#333",
-                    border: "1px solid #ccc",
-                    borderRadius: "0.25rem",
-                    padding: "0 0.5rem",
-                  }}
                 >
                   <option value="">Todos</option>
                   <option value="BORRADOR">Borrador</option>
                   <option value="REGISTRADO">Registrado</option>
-                  <option value="VALIDO">Válido</option>
+                  <option value="VALIDADO">Validado</option>
                   <option value="APROBADO">Aprobado</option>
                 </select>
               </label>
-            </div>
-          )}
-        </div>
 
-        {isFiltering ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              flexWrap: "wrap",
-              marginBottom: "1rem",
-              padding: "0.5rem 0.75rem",
-              background: "#f0fdfa",
-              border: "1px solid #ccfbf1",
-              borderRadius: "6px",
-              fontSize: "0.875rem",
-              color: "#0f766e",
-            }}
-          >
-            <span style={{ fontWeight: 600 }}>Filtrando por:</span>
-            {estadoFilter ? (
-              <span
-                style={{
-                  background: "#e2e8f0",
-                  color: "#334155",
-                  padding: "0.15rem 0.45rem",
-                  borderRadius: "4px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  fontWeight: 500,
-                }}
-              >
-                Estado: {estadoFilter}
-                <button
-                  onClick={() => setEstadoFilter("")}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    padding: 0,
-                    fontWeight: "bold",
-                    color: "#64748b",
-                    fontSize: "1rem",
-                    lineHeight: 1,
-                  }}
-                  type="button"
-                >
-                  ×
-                </button>
-              </span>
-            ) : null}
-            {muniFilter ? (
-              <span
-                style={{
-                  background: "#e2e8f0",
-                  color: "#334155",
-                  padding: "0.15rem 0.45rem",
-                  borderRadius: "4px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  fontWeight: 500,
-                }}
-              >
-                Muni: {municipalidades.find(m => m.id === muniFilter)?.nombre || muniFilter}
-                <button
-                  onClick={() => setMuniFilter("")}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    padding: 0,
-                    fontWeight: "bold",
-                    color: "#64748b",
-                    fontSize: "1rem",
-                    lineHeight: 1,
-                  }}
-                  type="button"
-                >
-                  ×
-                </button>
-              </span>
-            ) : null}
-            <button
-              onClick={() => {
-                setEstadoFilter("");
-                setMuniFilter("");
-              }}
-              style={{
-                border: "none",
-                background: "transparent",
-                color: "#b91c1c",
-                cursor: "pointer",
-                padding: "0.15rem 0.3rem",
-                textDecoration: "underline",
-                fontWeight: 500,
-                fontSize: "0.85rem",
-              }}
-              type="button"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        ) : null}
-
-          <div className="admin-table-meta" style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>
-            <span>{filteredActores.length} actores sociales encontrados</span>
-            <span>
-              {isLoading ? "Cargando..." : `1-${filteredActores.length} de ${filteredActores.length}`}
-            </span>
-          </div>
-
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th style={{ width: "40px" }}><input type="checkbox" readOnly /></th>
-                  <th onClick={() => handleSort("establecimiento")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Establecimiento Salud{getSortIcon("establecimiento")}
-                  </th>
-                  <th onClick={() => handleSort("dni")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    DNI{getSortIcon("dni")}
-                  </th>
-                  <th onClick={() => handleSort("apellidos")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Apellidos{getSortIcon("apellidos")}
-                  </th>
-                  <th onClick={() => handleSort("nombres")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Nombres{getSortIcon("nombres")}
-                  </th>
-                  <th onClick={() => handleSort("tipoActor")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Tipo Actor Social{getSortIcon("tipoActor")}
-                  </th>
-                  {user?.rol === "ADMIN_GENERAL" && (
-                    <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
-                      Municipalidad{getSortIcon("municipalidad")}
-                    </th>
-                  )}
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupBy ? (
-                  groupedActores && Object.keys(groupedActores).map((groupName) => (
-                    <Fragment key={groupName}>
-                      <tr
-                        onClick={() => toggleGroupCollapse(groupName)}
-                        style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
-                      >
-                        <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
-                            <LuFolder size={18} style={{ color: "#71639e" }} />
-                            <span>{groupName}</span>
-                            <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
-                              ({groupedActores[groupName].length})
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      {!collapsedGroups[groupName] && groupedActores[groupName].map((a) => renderRow(a))}
-                    </Fragment>
-                  ))
-                ) : (
-                  sortedActores.map((a) => renderRow(a))
-                )}
-                {!isLoading && filteredActores.length === 0 ? (
-                  <tr>
-                    <td className="admin-empty-cell" colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7}>
-                      No se encontraron actores sociales.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </>
-    );
-  }
-
-  // Form / Detail view
-  const currentStepIndex = ["BORRADOR", "REGISTRADO", "VALIDADO", "APROBADO"].indexOf(form.estado || "BORRADOR");
-
-  return (
-    <div className="actores-detail-container">
-      <div className="admin-page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-        
-        {/* Detail/Create Top Left controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <button
-            className="admin-button is-ghost"
-            onClick={() => setViewMode("list")}
-            type="button"
-          >
-            Volver al listado
-          </button>
-          
-          <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "var(--text)", display: "flex", alignItems: "center", gap: "0.3rem", marginLeft: "0.5rem" }}>
-            {viewMode === "create" 
-              ? "Nuevo Actor Social" 
-              : `[${viewingActor?.dni}] ${viewingActor?.apellidos} ${viewingActor?.nombres}`}
-            
-            {viewMode === "detail" && viewingActor && (
-              <div style={{ position: "relative", display: "inline-block" }}>
-                <button
-                  type="button"
-                  onClick={() => setIsGearMenuOpen(!isGearMenuOpen)}
-                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: "0.25rem", color: "var(--muted)" }}
-                >
-                  <LuSettings size={18} />
-                </button>
-                {isGearMenuOpen && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, background: "white", border: "1px solid #ccc", borderRadius: "0.25rem", boxShadow: "0 2px 5px rgba(0,0,0,0.15)", zIndex: 10, width: "120px" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsGearMenuOpen(false);
-                        setConfirmConfig({
-                          isOpen: true,
-                          title: "Archivar Actor Social",
-                          message: "¿Seguro que deseas archivar este actor social? No aparecerá en los listados activos pero mantendrá su historial.",
-                          onConfirm: () => handleArchivar(viewingActor),
-                        });
-                      }}
-                      style={{ width: "100%", border: "none", background: "transparent", padding: "0.5rem 0.75rem", cursor: "pointer", textAlign: "left", fontSize: "0.9rem" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f5")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      Archivar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </span>
-        </div>
-
-        {/* State Flow Bar (Top Right) */}
-        <div className="stepper-bar" style={{ margin: 0, width: "auto" }}>
-          {["Borrador", "Registrado", "Validado", "Aprobado"].map((step, idx) => {
-            const isCompleted = idx < currentStepIndex;
-            const isActive = idx === currentStepIndex;
-            return (
-              <div key={step} className="stepper-step" style={{ flex: idx === 3 ? "none" : 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <div className={`stepper-step-circle ${isCompleted || isActive ? (isActive ? "is-active" : "is-completed") : "is-inactive"}`}>
-                    {idx + 1}
-                  </div>
-                  <span className={`stepper-step-label ${isActive ? "is-active" : "is-inactive"}`}>
-                    {step}
-                  </span>
-                </div>
-                {idx < 3 && (
-                  <div className={`stepper-line ${isCompleted ? "is-completed" : "is-inactive"}`} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {error && (
-        <div className="admin-alert is-error" style={{ marginBottom: "1.25rem" }}>
-          {error}
-        </div>
-      )}
-      {message && (
-        <div className="admin-alert is-success" style={{ marginBottom: "1.25rem" }}>
-            {message}
-        </div>
-      )}
-      
-      {/* Main detail page split layout */}
-      <div className="actores-split-layout">
-        
-        {/* Left Side: General Form Panels */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          
-          {/* Observations alert */}
-          {viewingActor?.observaciones && (form.estado === "REGISTRADO" || form.estado === "VALIDADO") && (
-            <div className="observations-alert-box" style={{ margin: 0 }}>
-              <strong>Observaciones del Supervisor:</strong>
-              <p style={{ margin: "0.25rem 0 0", whiteSpace: "pre-wrap" }}>{viewingActor.observaciones}</p>
-            </div>
-          )}
-
-          <div className="actores-form-panel">
-            
-            {/* ACTOR SOCIAL FIELDSET */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <h2 style={{ fontSize: "1.1rem", borderBottom: "2px solid #71639e", paddingBottom: "0.5rem", margin: 0 }}>ACTOR SOCIAL</h2>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                <label className="field">
-                  Tipo Actor Social *
-                  <select
-                    value={form.tipoActorSocialId}
-                    onChange={(e) => setForm((curr) => ({ ...curr, tipoActorSocialId: e.target.value }))}
-                    required
-                    disabled={form.estado !== "BORRADOR"}
-                  >
-                    <option value="">Selecciona tipo...</option>
-                    {tiposActor.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.tipoActor}
-                      </option>
-                    ))}
-                  </select>
-                  {showValidationErrors && !form.tipoActorSocialId && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      El tipo de actor social es obligatorio.
-                    </span>
-                  )}
-                </label>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
-                    <label className="field" style={{ flex: 1, margin: 0 }}>
-                      DNI *
-                      <input
-                        type="text"
-                        maxLength={8}
-                        required
-                        value={form.dni}
-                        onChange={(e) => setForm((curr) => ({ ...curr, dni: e.target.value }))}
-                        placeholder="DNI de 8 dígitos"
-                        disabled={viewMode === "detail" || form.estado !== "BORRADOR"}
-                      />
-                    </label>
-                    {viewMode === "create" && (
-                      <button
-                        className="admin-button is-primary"
-                        type="button"
-                        style={{ height: "42px" }}
-                        disabled={isSearchingDni}
-                        onClick={handleDniLookup}
-                      >
-                        {isSearchingDni ? "..." : "Consultar"}
-                      </button>
-                    )}
-                  </div>
-                  {showValidationErrors && (!form.dni.trim() || form.dni.length !== 8) && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      DNI debe tener exactamente 8 dígitos.
-                    </span>
-                  )}
-                </div>
-
-                <label className="field">
-                  Apellidos (Autocompletado) *
-                  <input
-                    type="text"
-                    required
-                    disabled
-                    value={form.apellidos}
-                    placeholder="Se autocompleta con DNI"
-                  />
-                  {showValidationErrors && !form.apellidos.trim() && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      Los apellidos son obligatorios (consulte el DNI).
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Nombres (Autocompletado) *
-                  <input
-                    type="text"
-                    required
-                    disabled
-                    value={form.nombres}
-                    placeholder="Se autocompleta con DNI"
-                  />
-                  {showValidationErrors && !form.nombres.trim() && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      Los nombres son obligatorios (consulte el DNI).
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Dirección *
-                  <input
-                    type="text"
-                    required
-                    value={form.direccion}
-                    onChange={(e) => setForm((curr) => ({ ...curr, direccion: e.target.value }))}
-                    placeholder="Dirección del actor social"
-                  />
-                  {showValidationErrors && !form.direccion.trim() && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      La dirección es obligatoria.
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Fecha de Nacimiento *
-                  <input
-                    type="date"
-                    required
-                    value={form.fechaNac}
-                    max={yesterdayStr}
-                    onChange={(e) => setForm((curr) => ({ ...curr, fechaNac: e.target.value }))}
-                    disabled={viewMode === "detail" || form.estado !== "BORRADOR"}
-                  />
-                  {showValidationErrors && (!form.fechaNac || form.fechaNac >= todayStr) && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      La fecha de nacimiento debe ser anterior a la fecha actual.
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Correo Electrónico *
-                  <input
-                    type="email"
-                    required
-                    value={form.email}
-                    onChange={(e) => setForm((curr) => ({ ...curr, email: e.target.value }))}
-                    placeholder="correo@ejemplo.com"
-                  />
-                  {showValidationErrors && (!form.email.trim() || !form.email.includes("@")) && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      El correo electrónico es obligatorio y debe ser válido.
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Celular (9 dígitos) *
-                  <input
-                    type="text"
-                    maxLength={9}
-                    required
-                    value={form.celular}
-                    onChange={(e) => setForm((curr) => ({ ...curr, celular: e.target.value }))}
-                    placeholder="Ej. 987654321"
-                  />
-                  {showValidationErrors && (!form.celular.trim() || form.celular.length !== 9) && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      Celular debe tener exactamente 9 dígitos.
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Idioma de Origen *
-                  <select
-                    value={form.idiomaOrigen}
-                    onChange={(e) => setForm((curr) => ({ ...curr, idiomaOrigen: e.target.value }))}
-                    required
-                  >
-                    <option value="">Selecciona idioma...</option>
-                    {IDIOMAS_ORIGEN.map((i) => (
-                      <option key={i} value={i}>
-                        {i}
-                      </option>
-                    ))}
-                  </select>
-                  {showValidationErrors && !form.idiomaOrigen && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      El idioma de origen es obligatorio.
-                    </span>
-                  )}
-                </label>
-
-                <label className="field">
-                  Grado de Instrucción *
-                  <select
-                    value={form.gradoInstruccion}
-                    onChange={(e) => setForm((curr) => ({ ...curr, gradoInstruccion: e.target.value }))}
-                    required
-                  >
-                    <option value="">Selecciona grado...</option>
-                    {GRADOS_INSTRUCCION.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  {showValidationErrors && !form.gradoInstruccion && (
-                    <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "0.25rem" }}>
-                      El grado de instrucción es obligatorio.
-                    </span>
-                  )}
-                </label>
-
-                {/* Status Toggles */}
-                <div style={{ display: "flex", gap: "2rem", marginTop: "0.5rem" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={form.activo}
-                      onChange={() => {
-                        if (viewMode === "detail" && viewingActor) {
-                          void handleToggleActivoDirect(viewingActor);
-                        } else {
-                          setForm(curr => ({ ...curr, activo: !curr.activo }));
-                        }
-                      }}
-                    />
-                    <strong>Activo</strong>
-                  </label>
-
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", color: form.inactivadoPermanentemente ? "var(--color-danger)" : "inherit" }}>
-                    <input
-                      type="checkbox"
-                      checked={form.inactivadoPermanentemente}
-                      onChange={(e) => setForm(curr => ({ ...curr, inactivadoPermanentemente: e.target.checked }))}
-                    />
-                    <strong>Inactivado Permanentemente</strong>
-                  </label>
-                </div>
-
-                <div style={{ borderTop: "1px dashed var(--border)", paddingTop: "1rem", marginTop: "0.5rem" }}>
-                  <p style={{ margin: "0 0 0.5rem", fontSize: "0.85rem", color: "var(--muted)" }}>Tipo entidad: <strong>{selectedEntidadTipo || "-"}</strong></p>
-                  <label className="field">
-                    Entidad
-                    <select
-                      value={form.entidadId}
-                      onChange={(e) => setForm((curr) => ({ ...curr, entidadId: e.target.value }))}
-                      disabled={form.estado !== "BORRADOR"}
-                    >
-                      <option value="">Ninguno / Sin adscripción</option>
-                      {entidades.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* GRUPO DE TRABAJO FIELDSET */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <h2 style={{ fontSize: "1.1rem", borderBottom: "2px solid #71639e", paddingBottom: "0.5rem", margin: 0 }}>GRUPO DE TRABAJO/ESTABLECIMIENTO DE SALUD</h2>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                {user?.rol === "ADMIN_GENERAL" && viewMode === "create" ? (
-                  <>
-                    <AutocompleteSearch
-                      label="Municipalidad"
-                      placeholder="Escribe para buscar municipalidad..."
-                      value={form.municipalidadId}
-                      displayValue={selectedMuniName}
-                      options={municipalidadesOptions}
-                      onChange={(id) => handleMuniChange(id)}
-                      onSearchMore={() => openSearchModal("municipalidad")}
-                      required
-                      disabled={form.estado !== "BORRADOR"}
-                    />
-                    {showValidationErrors && !form.municipalidadId && (
-                      <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
-                        La municipalidad es obligatoria.
-                      </span>
-                    )}
-                  </>
-                ) : null}
-
-                <AutocompleteSearch
-                  label="Grupo de trabajo"
-                  placeholder="Buscar grupo de trabajo..."
-                  value={form.grupoTrabajoId}
-                  displayValue={selectedGrupoName}
-                  options={gruposOptions}
-                  onChange={(id) => setForm((curr) => ({ ...curr, grupoTrabajoId: id, grupoEstablecimientoId: "" }))}
-                  onSearchMore={() => openSearchModal("grupo")}
-                  required
-                  disabled={form.estado !== "BORRADOR"}
-                />
-                {showValidationErrors && !form.grupoTrabajoId && (
-                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
-                    El grupo de trabajo es obligatorio.
-                  </span>
-                )}
-
-                <p style={{ margin: 0, fontSize: "0.9rem" }}>
-                  <strong>Grupo de trabajo/Distrito:</strong><br />
-                  <span style={{ color: "var(--muted)" }}>{selectedGrupoDistrito || "-"}</span>
-                </p>
-
-                {/* Combobox replacement for Centro Poblado (Urban) */}
-                <AutocompleteSearch
-                  label="Centro Poblado"
-                  placeholder="Buscar Centro Poblado..."
-                  value={form.centroPobladoId}
-                  displayValue={selectedCpUrbanoName}
-                  options={urbanCentroPobladosOptions}
-                  onChange={(id) =>
-                    setForm((curr) => ({
-                      ...curr,
-                      centroPobladoId: id,
-                    }))
-                  }
-                  onSearchMore={() => openSearchModal("centro_poblado")}
-                  disabled={form.estado !== "BORRADOR"}
-                />
-
-                {/* Combobox replacement for Centro Poblado Rural */}
-                <AutocompleteSearch
-                  label="Centro Poblado Rural"
-                  placeholder="Buscar Centro Poblado Rural..."
-                  value={form.centroPobladoId}
-                  displayValue={selectedCpRuralName}
-                  options={ruralCentroPobladosOptions}
-                  onChange={(id) =>
-                    setForm((curr) => ({
-                      ...curr,
-                      centroPobladoId: id,
-                    }))
-                  }
-                  onSearchMore={() => openSearchModal("centro_poblado_rural")}
-                  disabled={form.estado !== "BORRADOR"}
-                />
-
-                <AutocompleteSearch
-                  label="Establecimiento Salud"
-                  placeholder="Buscar establecimiento..."
-                  value={form.grupoEstablecimientoId}
-                  displayValue={selectedEstablecimientoName}
-                  options={establecimientosOptions}
-                  onChange={(id) => setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }))}
-                  onSearchMore={() => openSearchModal("establecimiento")}
-                  required
-                  disabled={form.estado !== "BORRADOR"}
-                />
-                {showValidationErrors && !form.grupoEstablecimientoId && (
-                  <span style={{ color: "#d32f2f", fontSize: "0.8rem", marginTop: "-1rem", marginBottom: "0.5rem" }}>
-                    El establecimiento de salud es obligatorio.
-                  </span>
-                )}
-
-                {/* Sectores relation tags block */}
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", marginTop: "1rem" }}>
-                  <h3 style={{ fontSize: "0.95rem", margin: "0 0 0.75rem" }}>Sectores</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", minHeight: "2.5rem", padding: "0.5rem", border: "1px solid var(--border)", borderRadius: "0.25rem", background: "var(--surface-muted)" }}>
-                    {form.sectoresIds.map((id) => {
-                      const sec = sectores.find((s) => s.id === id);
-                      return sec ? (
-                        <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", padding: "0.15rem 0.5rem", fontSize: "0.8rem", background: "#e8e8e8", borderRadius: "1rem", border: "1px solid #ccc" }}>
-                          {sec.centroPoblado?.nombre || "-"} - {sec.nombreSector}
-                          {form.estado === "BORRADOR" && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSectorTag(id)}
-                              style={{ border: "none", background: "transparent", cursor: "pointer", fontWeight: "bold", fontSize: "0.85rem", color: "#888" }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </span>
-                      ) : null;
-                    })}
-                    {form.sectoresIds.length === 0 && <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontStyle: "italic" }}>Sin sectores asignados</span>}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "1rem" }}>
-                  <h3 style={{ fontSize: "0.95rem", margin: "0 0 0.75rem" }}>Sectores a corregir</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", minHeight: "2.5rem", padding: "0.5rem", border: "1px solid var(--border)", borderRadius: "0.25rem", background: "var(--surface-muted)" }}>
-                    {form.sectoresACorregirIds.map((id) => {
-                      const sec = sectores.find((s) => s.id === id);
-                      return sec ? (
-                        <span key={id} style={{ display: "inline-flex", alignItems: "center", padding: "0.15rem 0.5rem", fontSize: "0.8rem", background: "#fde8e8", color: "#c81e1e", borderRadius: "1rem", border: "1px solid #f8b4b4" }}>
-                          {sec.centroPoblado?.nombre || "-"} - {sec.nombreSector}
-                        </span>
-                      ) : null;
-                    })}
-                    {form.sectoresACorregirIds.length === 0 && <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontStyle: "italic" }}>Sin sectores asignados</span>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons bar */}
-          <div className="form-actions-margin-bottom">
-            {form.estado === "BORRADOR" && (
-              <>
-                <button className="admin-button is-ghost" onClick={() => setViewMode("list")} type="button">
-                  Cancelar
-                </button>
-                <button className="admin-button is-secondary" onClick={() => void saveActorData(false)} disabled={isSaving} type="button">
-                  Guardar
-                </button>
-                <button className="admin-button is-primary" onClick={() => void saveActorData(true)} disabled={isSaving} type="button">
-                  Registrar
-                </button>
-              </>
-            )}
-
-            {form.estado === "REGISTRADO" && (
-              <>
-                <button className="admin-button is-ghost" onClick={() => setViewMode("list")} type="button">
-                  Cancelar
-                </button>
-                <button className="admin-button is-secondary" onClick={() => void saveActorData(false)} disabled={isSaving} type="button">
-                  Guardar
-                </button>
-                <button className="admin-button is-primary" onClick={() => void saveActorData(true)} disabled={isSaving} type="button">
-                  Validar
-                </button>
-              </>
-            )}
-
-            {form.estado === "VALIDADO" && (
-              <>
-                {user?.rol === "ADMIN_GENERAL" || user?.rol === "ADMIN_MUNICIPAL" ? (
-                  <>
-                    <button
-                      className="admin-button is-ghost is-warning"
-                      onClick={() => {
-                        setStatusComment("");
-                        setIsObserveModalOpen(true);
-                      }}
-                      disabled={isSubmittingEstado}
-                      type="button"
-                    >
-                      Observar
-                    </button>
-                    <button
-                      className="admin-button is-primary"
-                      onClick={() => {
-                        setConfirmConfig({
-                          isOpen: true,
-                          title: "Aprobar Actor Social",
-                          message: "¿Seguro que deseas aprobar y habilitar este actor social?",
-                          onConfirm: () => handleTransitionEstado(viewingActor!, "APROBADO"),
-                        });
-                      }}
-                      disabled={isSubmittingEstado}
-                      type="button"
-                    >
-                      Aprobar
-                    </button>
-                  </>
-                ) : (
-                  <span className="status-pill is-warning" style={{ padding: "0.5rem 1rem", fontSize: "0.95rem" }}>
-                    En espera de revisión
-                  </span>
-                )}
-              </>
-            )}
-
-            {form.estado === "APROBADO" && viewingActor && (
               <button
-                className="admin-button is-ghost is-danger"
+                className="admin-button is-secondary"
                 onClick={() => {
-                  setConfirmConfig({
-                    isOpen: true,
-                    title: "Archivar Actor Social",
-                    message: "¿Seguro que deseas archivar este actor social? Se mantendrá el historial pero no estará activo.",
-                    onConfirm: () => handleArchivar(viewingActor),
-                  });
+                  setEstadoFilter("");
+                  if (user?.rol === "ADMIN_GENERAL") {
+                    setMuniFilter("");
+                  }
                 }}
+                style={{ marginTop: "0.5rem" }}
                 type="button"
               >
-                Archivar Actor Social
+                Limpiar Filtros
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Right Side: Timeline */}
-        <div style={{ background: "white", padding: "1.5rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", height: "fit-content" }}>
-          <h2 style={{ fontSize: "1.1rem", borderBottom: "2px solid #71639e", paddingBottom: "0.5rem", margin: "0 0 1rem" }}>HISTORIAL</h2>
-          
-          <div className="timeline-container">
-            {timeline.map((item) => (
-              <div key={item.id} className="timeline-item">
-                <div className="timeline-item-header">
-                  <strong>{item.author}</strong>
-                  <span className="timeline-item-time">{item.date}</span>
-                </div>
-                <p className="timeline-item-text">{item.text}</p>
-              </div>
-            ))}
-            {timeline.length === 0 && (
-              <div style={{ textAlign: "center", color: "var(--muted)", padding: "2rem 0" }}>
-                <span>💬</span><br />
-                <span style={{ fontSize: "0.85rem" }}>La conversación está vacía.</span>
-              </div>
-            )}
-          </div>
-
-          <textarea
-            rows={3}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Escribe una nota interna aquí..."
-            style={{ marginTop: "1.5rem", padding: "0.75rem", borderRadius: "0.25rem", border: "1px solid var(--border)", width: "100%", background: "white", color: "var(--text)" }}
-          />
-        </div>
-      </div>
-
-      {/* Tab lists under form */}
-      {(viewMode === "detail" && form.estado !== "BORRADOR") && (
-        <div style={{ background: "white", padding: "2rem", borderRadius: "0.55rem", border: "1px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", marginTop: "2rem" }}>
-          <div className="tab-buttons-bar">
-            {form.estado === "APROBADO" && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("registros")}
-                  className={`tab-button ${activeTab === "registros" ? "is-active" : "is-inactive"}`}
-                >
-                  Registros
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("manzanas")}
-                  className={`tab-button ${activeTab === "manzanas" ? "is-active" : "is-inactive"}`}
-                >
-                  Asignacion de manzanas
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setActiveTab("otros_docs")}
-              className={`tab-button ${activeTab === "otros_docs" ? "is-active" : "is-inactive"}`}
-            >
-              Otros Documentos
-            </button>
-          </div>
-
-          {activeTab === "registros" && form.estado === "APROBADO" && (
-            <div style={{ padding: "1rem 0", color: "var(--muted)", fontStyle: "italic" }}>
-              No hay registros adicionales en esta sección.
             </div>
           )}
+        </div>
 
-          {activeTab === "manzanas" && form.estado === "APROBADO" && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                <span>{availableManzanas.length} manzanas / sectores urbanos disponibles en la municipalidad</span>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    className="admin-button is-ghost"
-                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                    disabled={manzanasPage === 0}
-                    onClick={() => setManzanasPage(p => p - 1)}
-                    type="button"
-                  >
-                    ◀
-                  </button>
-                  <span style={{ alignSelf: "center", fontSize: "0.85rem" }}>
-                    {manzanasPage * 20 + 1}-{Math.min((manzanasPage + 1) * 20, availableManzanas.length)} de {availableManzanas.length}
-                  </span>
-                  <button
-                    className="admin-button is-ghost"
-                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                    disabled={(manzanasPage + 1) * 20 >= availableManzanas.length}
-                    onClick={() => setManzanasPage(p => p + 1)}
-                    type="button"
-                  >
-                    ▶
-                  </button>
-                </div>
-              </div>
-
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Sector</th>
-                      <th>Zona</th>
-                      <th>Manzana</th>
-                      <th style={{ width: "100px", textAlign: "center" }}>Asignado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedManzanas.map((m) => {
-                      const isAssigned = form.sectoresIds.includes(m.id);
-                      const asignadoAOtro = sectoresAsignadosAOtros[m.id];
-                      return (
-                        <tr key={m.id} style={asignadoAOtro ? { backgroundColor: "rgba(239, 68, 68, 0.05)" } : undefined}>
-                          <td>
-                            {m.nombreSector}
-                            {asignadoAOtro && (
-                              <div style={{ fontSize: "0.75rem", color: "#ef4444", marginTop: "0.25rem", fontWeight: "500" }}>
-                                ⚠️ Asignado a: {asignadoAOtro.actorName}
-                              </div>
-                            )}
-                          </td>
-                          <td>{m.urbano?.zona || "-"}</td>
-                          <td>{m.urbano?.manzana || "-"}</td>
-                          <td style={{ textAlign: "center" }}>
-                            <input
-                              type="checkbox"
-                              checked={isAssigned}
-                              onChange={() => handleToggleManzanaAssignment(m.id)}
-                              style={{ transform: "scale(1.2)", cursor: "pointer" }}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {availableManzanas.length === 0 && (
-                      <tr>
-                        <td className="admin-empty-cell" colSpan={4}>
-                          No hay sectores urbanos en esta municipalidad.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "otros_docs" && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem", padding: "0 1rem", alignItems: "center" }}>
-                <h4 style={{ margin: 0, fontSize: "1.05rem" }}>Otros Documentos</h4>
-                {(form.estado === "REGISTRADO" || form.estado === "APROBADO") && (
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <input
-                      type="file"
-                      id="upload-actor-file-input"
-                      style={{ display: "none" }}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setError(null);
-                        setMessage(null);
-                        try {
-                          const saved = await uploadActorArchivo(viewingActor!.id, file);
-                          setArchivos((curr) => [...curr, saved]);
-                          setMessage("Archivo subido con éxito.");
-                        } catch (err: any) {
-                          setError(err.message || "Error al subir el archivo.");
-                        }
-                      }}
-                    />
-                    <button
-                      className="admin-button is-primary"
-                      onClick={() => document.getElementById("upload-actor-file-input")?.click()}
-                      type="button"
-                    >
-                      + Subir Documento (PDF/Imagen)
-                    </button>
-                  </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th style={{ width: "40px" }}><input type="checkbox" readOnly /></th>
+                <th onClick={() => handleSort("establecimiento")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Establecimiento Salud{getSortIcon("establecimiento")}
+                </th>
+                <th onClick={() => handleSort("dni")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  DNI{getSortIcon("dni")}
+                </th>
+                <th onClick={() => handleSort("apellidos")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Apellidos{getSortIcon("apellidos")}
+                </th>
+                <th onClick={() => handleSort("nombres")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Nombres{getSortIcon("nombres")}
+                </th>
+                <th onClick={() => handleSort("tipoActor")} style={{ cursor: "pointer", userSelect: "none" }}>
+                  Tipo Actor Social{getSortIcon("tipoActor")}
+                </th>
+                {user?.rol === "ADMIN_GENERAL" && (
+                  <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    Municipalidad{getSortIcon("municipalidad")}
+                  </th>
                 )}
-              </div>
-
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre del Archivo</th>
-                      <th>Tipo</th>
-                      <th>Fecha de Carga</th>
-                      <th>Acciones</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupBy ? (
+                groupedActores && Object.keys(groupedActores).map((groupName) => (
+                  <Fragment key={groupName}>
+                    <tr
+                      onClick={() => toggleGroupCollapse(groupName)}
+                      style={{ background: "#f8f9fa", cursor: "pointer", userSelect: "none" }}
+                    >
+                      <td colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7} style={{ fontWeight: "bold", padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {collapsedGroups[groupName] ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                          <LuFolder size={18} style={{ color: "#71639e" }} />
+                          <span>{groupName}</span>
+                          <span style={{ color: "var(--muted)", fontWeight: "normal", fontSize: "0.85rem" }}>
+                            ({groupedActores[groupName].length})
+                          </span>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {archivos.map((file) => (
-                      <tr key={file.id}>
-                        <td>{file.nombreArchivo}</td>
-                        <td>{file.mimeType}</td>
-                        <td>{new Date(file.createdAt).toLocaleString()}</td>
-                        <td>
-                          <div className="admin-row-actions">
-                            <button
-                              className="admin-icon-button"
-                              onClick={() => void downloadActorArchivo(file.id, file.nombreArchivo)}
-                              type="button"
-                            >
-                              Descargar
-                            </button>
-                            {(form.estado === "REGISTRADO" || form.estado === "APROBADO") && (
-                              <button
-                                className="admin-icon-button"
-                                style={{ color: "var(--color-danger, #d32f2f)" }}
-                                onClick={async () => {
-                                  if (!confirm("¿Está seguro de eliminar este documento?")) return;
-                                  setError(null);
-                                  setMessage(null);
-                                  try {
-                                    await deleteActorArchivo(viewingActor!.id, file.id);
-                                    setArchivos((curr) => curr.filter((f) => f.id !== file.id));
-                                    setMessage("Archivo eliminado con éxito.");
-                                  } catch (err: any) {
-                                    setError(err.message || "Error al eliminar el archivo.");
-                                  }
-                                }}
-                                type="button"
-                              >
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {archivos.length === 0 && (
-                      <tr>
-                        <td className="admin-empty-cell" colSpan={4}>
-                          No hay documentos adicionales cargados.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+                    {!collapsedGroups[groupName] && groupedActores[groupName].map((a) => renderRow(a))}
+                  </Fragment>
+                ))
+              ) : (
+                sortedActores.map((a) => renderRow(a))
+              )}
+              {!isLoading && filteredActores.length === 0 ? (
+                <tr>
+                  <td className="admin-empty-cell" colSpan={user?.rol === "ADMIN_GENERAL" ? 8 : 7}>
+                    No se encontraron registros de actores sociales.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
-      )}
-
-      {/* Modal de Observaciones */}
-      {isObserveModalOpen && (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog" style={{ zIndex: 9999 }}>
-          <form
-            className="admin-modal"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!statusComment.trim()) return;
-              void handleTransitionEstado(viewingActor!, "REGISTRADO", statusComment);
-            }}
-          >
-            <div className="admin-modal-header">
-              <h2>Enviar con Observaciones</h2>
-              <button
-                className="admin-modal-close"
-                onClick={() => setIsObserveModalOpen(false)}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <div className="admin-form-grid" style={{ padding: "1.5rem 1rem" }}>
-              <label className="field admin-form-wide">
-                Observaciones / Comentarios (Obligatorio)
-                <textarea
-                  maxLength={1000}
-                  onChange={(e) => setStatusComment(e.target.value)}
-                  required
-                  rows={4}
-                  value={statusComment}
-                  placeholder="Describe las correcciones necesarias..."
-                  style={{ background: "white", color: "var(--text)" }}
-                />
-              </label>
-            </div>
-            <div className="admin-form-actions">
-              <button
-                className="admin-button is-ghost"
-                onClick={() => setIsObserveModalOpen(false)}
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button className="admin-button is-primary" disabled={isSubmittingEstado} type="submit">
-                Enviar Observación
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Advanced Search Modal */}
-      {searchModalConfig.isOpen && (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog" style={{ zIndex: 9999 }}>
-          <div className="admin-modal" style={{ maxWidth: "800px", width: "90%" }}>
-            <div className="admin-modal-header" style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #ccc", padding: "1rem" }}>
-              <h2 style={{ margin: 0 }}>{searchModalConfig.title}</h2>
-              <button
-                className="admin-modal-close"
-                onClick={() => setSearchModalConfig((curr) => ({ ...curr, isOpen: false }))}
-                type="button"
-                style={{ fontSize: "1.5rem", border: "none", background: "transparent", cursor: "pointer" }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Modal Sub-header displaying selected municipalidad details */}
-            {searchModalConfig.type !== "municipalidad" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", padding: "0.75rem 1rem", background: "#f8f9fa", borderBottom: "1px solid #eee", fontSize: "0.9rem" }}>
-                <div><strong>Departamento:</strong> {municipalidades.find((m) => m.id === form.municipalidadId)?.departamento || "No seleccionado"}</div>
-                <div><strong>Provincia:</strong> {municipalidades.find((m) => m.id === form.municipalidadId)?.provincia || "No seleccionado"}</div>
-                <div><strong>Distrito:</strong> {municipalidades.find((m) => m.id === form.municipalidadId)?.distrito || "No seleccionado"}</div>
-              </div>
-            )}
-
-            <div style={{ padding: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", gap: "1rem" }}>
-                <div style={{ position: "relative", flex: 1 }}>
-                  <LuSearch style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "#888" }} />
-                  <input
-                    type="text"
-                    placeholder="Buscar..."
-                    value={searchModalConfig.query}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchModalConfig((curr) => ({ ...curr, query: val, page: 0 }));
-                    }}
-                    style={{
-                      width: "100%",
-                      paddingLeft: "2.5rem",
-                      background: "white",
-                      color: "#333",
-                      border: "1px solid #ccc",
-                      borderRadius: "0.25rem",
-                      height: "38px",
-                    }}
-                  />
-                </div>
-                
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.9rem" }}>
-                  <button
-                    className="admin-button is-ghost"
-                    style={{ padding: "0.25rem 0.5rem" }}
-                    disabled={searchModalConfig.page === 0}
-                    onClick={() => setSearchModalConfig((curr) => ({ ...curr, page: curr.page - 1 }))}
-                    type="button"
-                  >
-                    <LuChevronLeft />
-                  </button>
-                  <span>
-                    {searchModalConfig.page * 10 + 1}-{Math.min((searchModalConfig.page + 1) * 10, modalFilteredItems.length)} de {modalFilteredItems.length}
-                  </span>
-                  <button
-                    className="admin-button is-ghost"
-                    style={{ padding: "0.25rem 0.5rem" }}
-                    disabled={(searchModalConfig.page + 1) * 10 >= modalFilteredItems.length}
-                    onClick={() => setSearchModalConfig((curr) => ({ ...curr, page: curr.page + 1 }))}
-                    type="button"
-                  >
-                    <LuChevronRight />
-                  </button>
-                </div>
-              </div>
-
-              <div className="admin-table-wrap" style={{ maxHeight: "350px", overflowY: "auto" }}>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      {searchModalConfig.type === "municipalidad" && (
-                        <>
-                          <th>Departamento</th>
-                          <th>Provincia</th>
-                          <th>Distrito</th>
-                          <th>Ubigeo</th>
-                          <th>Municipalidad</th>
-                        </>
-                      )}
-                      {searchModalConfig.type === "grupo" && (
-                        <>
-                          <th>Nombre de Grupo</th>
-                          <th>Año Periodo</th>
-                          <th>Representante</th>
-                          <th>Estado</th>
-                        </>
-                      )}
-                      {(searchModalConfig.type === "centro_poblado" || searchModalConfig.type === "centro_poblado_rural") && (
-                        <>
-                          <th>Departamento</th>
-                          <th>Provincia</th>
-                          <th>Distrito</th>
-                          <th>Ubigeo del CC.PP</th>
-                          <th>Centro Poblado</th>
-                          <th>Tipo</th>
-                        </>
-                      )}
-                      {searchModalConfig.type === "establecimiento" && (
-                        <>
-                          <th>Establecimiento</th>
-                          <th>Código</th>
-                          <th>Dirección</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalPaginatedItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        onClick={() => handleModalSelect(item.id, item.cols[item.cols.length - 1], item.raw)}
-                        style={{ cursor: "pointer" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f5eeff")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        {item.cols.map((col, idx) => (
-                          <td key={idx}>{col}</td>
-                        ))}
-                      </tr>
-                    ))}
-                    {modalFilteredItems.length === 0 && (
-                      <tr>
-                        <td colSpan={10} className="admin-empty-cell">
-                          No se encontraron registros.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="admin-form-actions" style={{ borderTop: "1px solid #ccc", padding: "1rem" }}>
-              <button
-                className="admin-button is-ghost"
-                onClick={() => setSearchModalConfig((curr) => ({ ...curr, isOpen: false }))}
-                type="button"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Motivo de Eliminación */}
-      {isReasonModalOpen ? (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog" style={{ zIndex: 9999 }}>
-          <form className="admin-modal" style={{ maxWidth: "480px" }} onSubmit={handleDeleteSubmit}>
-            <div className="admin-modal-header">
-              <h2>Confirmar Eliminación Lógica</h2>
-              <button className="admin-modal-close" onClick={() => setIsReasonModalOpen(false)} type="button">
-                ×
-              </button>
-            </div>
-            <div style={{ padding: "1rem" }}>
-              <label className="field">
-                Especifique el Motivo de la Eliminación (Obligatorio)
-                <textarea
-                  required
-                  rows={4}
-                  maxLength={500}
-                  value={deleteReason}
-                  onChange={(e) => setDeleteReason(e.target.value)}
-                  placeholder="Escriba aquí la justificación por la cual se elimina a este actor social del sistema..."
-                />
-              </label>
-            </div>
-            <div className="admin-form-actions">
-              <button className="admin-button is-ghost" onClick={() => setIsReasonModalOpen(false)} type="button">
-                Cancelar
-              </button>
-              <button className="admin-button" style={{ background: "var(--color-danger, #d32f2f)", color: "#fff" }} type="submit">
-                Confirmar Eliminación
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {/* Modal de Confirmación Genérico */}
-      {confirmConfig.isOpen ? (
-        <div aria-modal="true" className="admin-modal-backdrop" role="dialog" style={{ zIndex: 9999 }}>
-          <div className="admin-modal" style={{ maxWidth: "480px" }}>
-            <div className="admin-modal-header">
-              <h2>{confirmConfig.title}</h2>
-              <button
-                className="admin-modal-close"
-                onClick={() => setConfirmConfig((curr) => ({ ...curr, isOpen: false }))}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ padding: "1.5rem 1rem" }}>
-              <p style={{ margin: 0, fontSize: "1.05rem", lineHeight: "1.5", color: "var(--text)" }}>
-                {confirmConfig.message}
-              </p>
-            </div>
-            <div className="admin-form-actions">
-              <button
-                className="admin-button is-ghost"
-                onClick={() => setConfirmConfig((curr) => ({ ...curr, isOpen: false }))}
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button
-                className="admin-button is-primary"
-                onClick={async () => {
-                  setConfirmConfig((curr) => ({ ...curr, isOpen: false }));
-                  await confirmConfig.onConfirm();
-                }}
-                type="button"
-              >
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+      </section>
+    </>
   );
 }
