@@ -114,8 +114,8 @@ type SectorUniqueCheck = {
       distrito: string;
       nombreSector: string;
       tipoSector: "URBANO" | "RURAL";
-      urbano?: { create: { zona: string; manzana: string } } | null;
-      rural?: { create: { latitud?: number | null; longitud?: number | null; poblacion?: number | null } } | null;
+      urbano?: { create: { zona: string; manzana: string } };
+      rural?: { create: { latitud?: number | null; longitud?: number | null; poblacion?: number | null } };
       activo: boolean;
       archivado: boolean;
     };

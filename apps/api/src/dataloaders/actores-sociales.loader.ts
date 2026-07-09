@@ -92,7 +92,7 @@ type ActorSocialDelegate = {
       celular: string;
       idiomaOrigen: string;
       gradoInstruccion: string;
-      estado: "BORRADOR" | "REGISTRADO" | "VALIDO" | "CAPACITADO" | "APROBADO";
+      estado: "BORRADOR" | "REGISTRADO" | "VALIDADO" | "APROBADO";
       activo: boolean;
       archivado: boolean;
       sectores?: {

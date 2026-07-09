@@ -158,7 +158,7 @@ export function createGruposTrabajoRouter(
       res
         .status(201)
         .json(
-          await service.createEstablishment(req.params.grupoId, parsed.data),
+          await service.createEstablecimiento(req.params.grupoId, parsed.data),
         );
     } catch (error) {
       next(error);
