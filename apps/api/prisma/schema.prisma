@@ -38,6 +38,11 @@ enum EstadoActorSocial {
   APROBADO
 }
 
+enum TipoAccionAsignacion {
+  ASIGNACION
+  DESASIGNACION
+}
+
 model Usuario {
   id              String     @id @default(uuid()) @db.Uuid
   municipalidadId String?    @map("municipalidad_id") @db.Uuid
@@ -52,6 +57,8 @@ model Usuario {
   municipalidad       Municipalidad?       @relation(fields: [municipalidadId], references: [id])
   passwordResetTokens PasswordResetToken[]
   actorSocial         ActorSocial?
+  historialAsignaciones HistorialAsignacionTerritorial[]
+  asignacionesNinos   AsignacionNinoSocial[]
 
   @@map("usuario")
 }
@@ -89,6 +96,8 @@ model Municipalidad {
   sectores        Sector[]
   actoresSociales ActorSocial[]
   centrosPoblados CentroPoblado[]
+  responsables    Responsable[]
+  ninos           Nino[]
 
   @@unique([ubigeo, codigo])
   @@map("municipalidad")
@@ -236,6 +245,8 @@ model Sector {
 
   actoresSociales           ActorSocial[] @relation("ActorSocialSectores")
   actoresSocialesACorregir  ActorSocial[] @relation("ActorSocialSectoresACorregir")
+  historialAsignaciones     HistorialAsignacionTerritorial[]
+  ninos                     Nino[]
 
   @@unique([municipalidadId, codigo])
   @@map("sector")
@@ -301,6 +312,9 @@ model ActorSocial {
   sectores             Sector[]              @relation("ActorSocialSectores")
   sectoresACorregir    Sector[]              @relation("ActorSocialSectoresACorregir")
   archivos             ActorSocialArchivo[]
+  historialAsignaciones HistorialAsignacionTerritorial[]
+  asignacionesNinos    AsignacionNinoSocial[]
+  visitas              VisitaDomiciliaria[]
 
   @@unique([municipalidadId, dni])
   @@map("actor_social")
@@ -356,4 +370,130 @@ model CentroPoblado {
   @@unique([municipalidadId, nombre, tipo])
   @@map("centro_poblado")
 }
+
+model HistorialAsignacionTerritorial {
+  id              String               @id @default(uuid()) @db.Uuid
+  actorSocialId   String               @map("actor_social_id") @db.Uuid
+  sectorId        String               @map("sector_id") @db.Uuid
+  tipoAccion      TipoAccionAsignacion @map("tipo_accion")
+  motivo          String               @db.Text
+  creadoPorId     String               @map("creado_por_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  actorSocial     ActorSocial          @relation(fields: [actorSocialId], references: [id], onDelete: Cascade)
+  sector          Sector               @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  creadoPor       Usuario              @relation(fields: [creadoPorId], references: [id])
+
+  @@map("historial_asignacion_territorial")
+}
+
+enum SexoNino {
+  MASCULINO
+  FEMENINO
+}
+
+enum EstadoVisita {
+  PROGRAMADA
+  EJECUTADA
+  REPROGRAMADA
+  INCONCLUSA
+}
+
+model Responsable {
+  id              String        @id @default(uuid()) @db.Uuid
+  municipalidadId String        @map("municipalidad_id") @db.Uuid
+  tipoDocumento   String        @map("tipo_documento") @db.VarChar(20) // "DNI", "CE", etc.
+  dni             String        @db.VarChar(15)
+  nombres         String        @db.VarChar(150)
+  apellidos       String        @db.VarChar(150)
+  celular         String?       @db.VarChar(9)
+  email           String?       @db.VarChar(150)
+  activo          Boolean       @default(true)
+  archivado       Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  municipalidad   Municipalidad @relation(fields: [municipalidadId], references: [id])
+  ninos           Nino[]
+
+  @@unique([municipalidadId, tipoDocumento, dni])
+  @@map("responsable")
+}
+
+model Nino {
+  id                String                   @id @default(uuid()) @db.Uuid
+  municipalidadId   String                   @map("municipalidad_id") @db.Uuid
+  responsableId     String                   @map("responsable_id") @db.Uuid
+  sectorId          String?                  @map("sector_id") @db.Uuid
+  dni               String?                  @db.VarChar(8)
+  cnv               String?                  @db.VarChar(20) // Certificado de Nacido Vivo
+  nombres           String                   @db.VarChar(150)
+  apellidos         String                   @db.VarChar(150)
+  sexo              SexoNino
+  fechaNac          DateTime                 @map("fecha_nac") @db.Date
+  direccion         String                   @db.VarChar(200)
+  referencia        String?                  @db.Text
+  latitud           Float?                   @db.DoublePrecision
+  longitud          Float?                   @db.DoublePrecision
+  activo            Boolean                  @default(true)
+  archivado         Boolean                  @default(false)
+  deletedAt         DateTime?                @map("deleted_at")
+  motivoEliminacion String?                  @map("motivo_eliminacion") @db.Text
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  municipalidad     Municipalidad            @relation(fields: [municipalidadId], references: [id])
+  responsable       Responsable              @relation(fields: [responsableId], references: [id])
+  sector            Sector?                  @relation(fields: [sectorId], references: [id])
+  asignaciones      AsignacionNinoSocial[]
+  visitas           VisitaDomiciliaria[]
+
+  @@unique([municipalidadId, dni])
+  @@map("nino")
+}
+
+model AsignacionNinoSocial {
+  id            String      @id @default(uuid()) @db.Uuid
+  ninoId        String      @map("nino_id") @db.Uuid
+  actorSocialId String      @map("actor_social_id") @db.Uuid
+  asignadoPorId String      @map("asignado_por_id") @db.Uuid
+  motivo        String?     @db.Text
+  activo        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  nino          Nino        @relation(fields: [ninoId], references: [id], onDelete: Cascade)
+  actorSocial   ActorSocial @relation(fields: [actorSocialId], references: [id], onDelete: Cascade)
+  asignadoPor   Usuario     @relation(fields: [asignadoPorId], references: [id])
+
+  @@map("asignacion_nino_social")
+}
+
+model VisitaDomiciliaria {
+  id              String       @id @default(uuid()) @db.Uuid
+  ninoId          String       @map("nino_id") @db.Uuid
+  actorSocialId   String       @map("actor_social_id") @db.Uuid
+  fechaProgramada DateTime     @map("fecha_programada") @db.Date
+  fechaEjecucion  DateTime?    @map("fecha_ejecucion")
+  estado          EstadoVisita @default(PROGRAMADA)
+  motivoInconclusa String?     @map("motivo_inconclusa") @db.Text
+  peso            Float?       @db.DoublePrecision
+  hierroEntregado Boolean?     @map("hierro_entregado")
+  consejeriaBrindada Boolean?  @map("consejeria_brindada")
+  alertas         String?      @db.Text
+  comentarios     String?      @db.Text
+  tipoRegistro    String?      @map("tipo_registro") @db.VarChar(100)
+  latitud         String?      @db.VarChar(50)
+  longitud        String?      @db.VarChar(50)
+  evidenciaUrl    String?      @map("evidencia_url") @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  nino            Nino         @relation(fields: [ninoId], references: [id], onDelete: Cascade)
+  actorSocial     ActorSocial  @relation(fields: [actorSocialId], references: [id], onDelete: Cascade)
+
+  @@map("visita_domiciliaria")
+}
+
+
 
