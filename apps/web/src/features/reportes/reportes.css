@@ -1,0 +1,179 @@
+/* Grid para tarjetas KPI */
+.reports-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Tarjeta KPI base */
+.kpi-card-custom {
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* Encabezado de la tarjeta */
+.kpi-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+/* Iconos de colores según el KPI */
+.kpi-icon {
+    font-size: 1.35rem;
+    opacity: 0.85;
+}
+
+/* Valor del KPI */
+.kpi-card-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin: 0.25rem 0;
+}
+
+/* Descripción */
+.kpi-card-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+/* Temas de color para bordes izquierdos o bordes superiores */
+.kpi-card-custom.purple { border-left: 4px solid #8b5cf6; }
+.kpi-card-custom.purple .kpi-icon { color: #8b5cf6; }
+
+.kpi-card-custom.green { border-left: 4px solid #10b981; }
+.kpi-card-custom.green .kpi-icon { color: #10b981; }
+
+.kpi-card-custom.blue { border-left: 4px solid #3b82f6; }
+.kpi-card-custom.blue .kpi-icon { color: #3b82f6; }
+
+.kpi-card-custom.orange { border-left: 4px solid #f97316; }
+.kpi-card-custom.orange .kpi-icon { color: #f97316; }
+
+.kpi-card-custom.indigo { border-left: 4px solid #6366f1; }
+.kpi-card-custom.indigo .kpi-icon { color: #6366f1; }
+
+/* Tarjeta especial con gradiente primario */
+.kpi-card-custom.primary-gradient {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
+    border: none;
+}
+
+.kpi-card-custom.primary-gradient:hover {
+    box-shadow: 0 12px 20px -3px rgba(15, 118, 110, 0.35);
+}
+
+.text-white {
+    color: #ffffff !important;
+}
+
+.text-white-muted {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* Barra de progreso custom para la tarjeta especial */
+.progress-container-custom {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+    overflow: hidden;
+    margin: 0.35rem 0;
+}
+
+.progress-bar-custom {
+    height: 100%;
+    background: #ffffff;
+    border-radius: 9999px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Filtros */
+.filter-section {
+    margin-bottom: 1.5rem;
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.filter-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.filter-actions-container {
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+
+.loading-spinner {
+    font-weight: 600;
+    color: var(--muted);
+    position: relative;
+    display: inline-block;
+    padding-left: 2rem;
+}
+
+.loading-spinner::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Responsividad general */
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}

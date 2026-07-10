@@ -29,6 +29,8 @@ import { CentrosPobladosPage } from "../features/sectores/pages/CentrosPobladosP
 import ResponsablesPage from "../features/responsables/pages/ResponsablesPage";
 import NinosPage from "../features/ninos/pages/NinosPage";
 import VisitasPage from "../features/visitas/pages/VisitasPage";
+import { ReporteActividadPage } from "../features/reportes/pages/ReporteActividadPage";
+import { ReporteOperativosPage } from "../features/reportes/pages/ReporteOperativosPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 function SessionExpirationListener() {
@@ -101,8 +103,8 @@ export function AppRouter() {
             <Route element={<ResponsablesPage />} path="/responsables" />
             <Route element={<NinosPage />} path="/ninos" />
             <Route element={<VisitasPage />} path="/ninos/visitas" />
-            <Route element={<ComingSoonPage />} path="/reportes/actividad" />
-            <Route element={<ComingSoonPage />} path="/reportes/operativos" />
+            <Route element={<ReporteActividadPage />} path="/reportes/actividad" />
+            <Route element={<ReporteOperativosPage />} path="/reportes/operativos" />
           </Route>
         </Route>
 

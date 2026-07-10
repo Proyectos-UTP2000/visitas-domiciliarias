@@ -119,17 +119,15 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         label: "Reporte Actividad",
-        description: "Previsto para reportes operativos.",
+        description: "Métricas y cobertura de visitas.",
         path: "/reportes/actividad",
         roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL", "SUPERVISOR", "PERSONAL_SALUD", "ACTOR_SOCIAL"],
-        status: "planned",
       },
       {
         label: "Otros reportes operativos",
-        description: "Reservado para siguientes reportes.",
+        description: "Padrón nominal y consejerías.",
         path: "/reportes/operativos",
         roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL", "SUPERVISOR", "PERSONAL_SALUD", "ACTOR_SOCIAL"],
-        status: "planned",
       },
     ],
   },
