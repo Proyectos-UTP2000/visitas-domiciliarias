@@ -14,6 +14,7 @@ import { createDefaultCentrosPobladosRouter } from "./modules/centros-poblados/c
 import { createDefaultResponsablesRouter } from "./modules/responsables/responsables.module.js";
 import { createDefaultNinosRouter } from "./modules/ninos/ninos.module.js";
 import { createDefaultVisitasRouter } from "./modules/visitas/visitas.module.js";
+import { createDefaultReportesRouter } from "./modules/reportes/reportes.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./shared/error-handler.js";
 
@@ -41,6 +42,7 @@ export function createApp() {
   app.use("/api/v1/responsables", createDefaultResponsablesRouter());
   app.use("/api/v1/ninos", createDefaultNinosRouter());
   app.use("/api/v1/visitas", createDefaultVisitasRouter());
+  app.use("/api/v1/reportes", createDefaultReportesRouter());
 
   app.use(errorHandler);
 
