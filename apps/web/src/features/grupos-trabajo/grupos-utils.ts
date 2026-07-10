@@ -50,7 +50,13 @@ export function filterGrupos(
   let result = grupos;
 
   if (estadoFilter) {
-    result = result.filter((g) => g.estado === estadoFilter);
+    if (estadoFilter === "BORRADOR") {
+      result = result.filter((g) => g.estado === "BORRADOR" && (!g.observaciones || !g.observaciones.trim()));
+    } else if (estadoFilter === "OBSERVADO") {
+      result = result.filter((g) => g.estado === "BORRADOR" && (g.observaciones && g.observaciones.trim()));
+    } else {
+      result = result.filter((g) => g.estado === estadoFilter);
+    }
   }
   if (periodoFilter) {
     result = result.filter((g) => g.periodoYear === periodoFilter);

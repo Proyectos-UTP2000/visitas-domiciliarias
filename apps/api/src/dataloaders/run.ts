@@ -11,6 +11,10 @@ import { seedUsuariosMunicipales } from "./usuarios-municipales.loader.js";
 import { seedSectores } from "./sectores.loader.js";
 import { seedGruposTrabajo } from "./grupos-trabajo.loader.js";
 import { seedActoresSociales } from "./actores-sociales.loader.js";
+import { seedResponsables } from "./responsables.loader.js";
+import { seedNinos } from "./ninos.loader.js";
+import { seedAsignacionesNinos } from "./asignaciones-ninos.loader.js";
+import { seedVisitasDomiciliarias } from "./visitas-domiciliarias.loader.js";
 
 loadEnv({ path: "../../.env" });
 loadEnv();
@@ -90,7 +94,39 @@ async function main() {
     hashPassword,
   });
   console.log(`DataLoader: ${actoresCreated} actores sociales creados.`);
+
+  const responsablesCreated = await seedResponsables({
+    responsables: prisma.responsable,
+    municipalidades: prisma.municipalidad,
+  });
+  console.log(`DataLoader: ${responsablesCreated} responsables creados.`);
+
+  const ninosCreated = await seedNinos({
+    ninos: prisma.nino,
+    municipalidades: prisma.municipalidad,
+    responsables: prisma.responsable,
+    sectores: prisma.sector,
+  });
+  console.log(`DataLoader: ${ninosCreated} niños creados.`);
+
+  const asignacionesCreated = await seedAsignacionesNinos({
+    asignaciones: prisma.asignacionNinoSocial,
+    municipalidades: prisma.municipalidad,
+    ninos: prisma.nino,
+    actoresSociales: prisma.actorSocial,
+    usuarios: prisma.usuario,
+  });
+  console.log(`DataLoader: ${asignacionesCreated} asignaciones de niños creadas.`);
+
+  const visitasCreated = await seedVisitasDomiciliarias({
+    visitas: prisma.visitaDomiciliaria,
+    municipalidades: prisma.municipalidad,
+    ninos: prisma.nino,
+    actoresSociales: prisma.actorSocial,
+  });
+  console.log(`DataLoader: ${visitasCreated} visitas domiciliarias creadas.`);
 }
+
 
 main()
   .catch((error: unknown) => {

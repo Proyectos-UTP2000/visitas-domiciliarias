@@ -58,9 +58,5 @@ dist/
 # Prisma generated/client artifacts
 apps/api/generated/
 
-# Local planning artifacts
-/docs/superpowers/
-docs/
-
 # TypeScript incremental build info
 *.tsbuildinfo

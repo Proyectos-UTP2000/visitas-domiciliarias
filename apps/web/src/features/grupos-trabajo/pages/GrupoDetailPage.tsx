@@ -682,8 +682,7 @@ export function GrupoDetailPage() {
               </div>
             </div>
 
-            {/* Observations alert */}
-            {grupo?.observaciones && (currentEstado === "REGISTRADO" || currentEstado === "VALIDADO") && (
+            {grupo?.observaciones && (currentEstado === "BORRADOR" || currentEstado === "REGISTRADO" || currentEstado === "VALIDADO") && (
               <div className="observations-alert-box">
                 <strong>Observaciones del Supervisor:</strong>
                 <p style={{ margin: "0.25rem 0 0", whiteSpace: "pre-wrap" }}>{grupo.observaciones}</p>
@@ -1468,7 +1467,7 @@ export function GrupoDetailPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!statusComment.trim()) return;
-              void handleTransitionEstado("OBSERVADO", statusComment);
+              void handleTransitionEstado("BORRADOR", statusComment);
             }}
           >
             <div className="admin-modal-header">

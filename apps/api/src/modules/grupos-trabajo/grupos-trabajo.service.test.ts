@@ -256,11 +256,11 @@ describe("GruposTrabajoService", () => {
     expect(updateGrupoEstado).toHaveBeenCalledWith("grupo-1", "VALIDADO", null);
   });
 
-  it("requires observations when status is observed (REGISTRADO with blank observations)", async () => {
+  it("requires observations when status is observed (BORRADOR with blank observations)", async () => {
     const service = new GruposTrabajoService(createRepository());
 
     await expect(
-      service.updateGrupoEstado("grupo-1", "REGISTRADO", " "),
+      service.updateGrupoEstado("grupo-1", "BORRADOR", " "),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 

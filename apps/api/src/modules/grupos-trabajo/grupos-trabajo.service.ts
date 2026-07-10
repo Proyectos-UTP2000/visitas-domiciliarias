@@ -213,7 +213,7 @@ export class GruposTrabajoService {
     estado: any,
     observaciones?: string | null,
   ): Promise<GrupoTrabajoRecord> {
-    if (estado === "REGISTRADO" && observaciones !== undefined && observaciones !== null && !observaciones.trim()) {
+    if (estado === "BORRADOR" && observaciones !== undefined && observaciones !== null && !observaciones.trim()) {
       throw new HttpError(400, "Las observaciones son obligatorias para observar el grupo de trabajo");
     }
     return this.repository.updateGrupoEstado(id, estado, observaciones?.trim() || null);

@@ -376,6 +376,16 @@
     color: var(--success);
 }
 
+.status-pill.is-warning {
+    background: #fffbeb;
+    color: #b45309;
+}
+
+.status-pill.is-suspended {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
 .status-pill.is-muted {
     background: var(--surface-muted);
     color: var(--muted);

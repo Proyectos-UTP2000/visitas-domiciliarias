@@ -282,8 +282,16 @@ export function GruposPage() {
         <td>{`${g.nombreRepresentante} ${g.apellidosRepresentante}`}</td>
         <td>{g.dniRepresentante}</td>
         <td>
-          <span className={`status-pill ${g.estado === "APROBADO" ? "is-active" : g.estado === "VALIDADO" ? "is-warning" : "is-muted"}`}>
-            {g.estado}
+          <span className={`status-pill ${
+            g.estado === "APROBADO"
+              ? "is-active"
+              : g.estado === "VALIDADO"
+                ? "is-warning"
+                : (g.estado === "BORRADOR" && g.observaciones)
+                  ? "is-suspended"
+                  : "is-muted"
+          }`}>
+            {g.estado === "BORRADOR" && g.observaciones ? "OBSERVADO" : g.estado}
           </span>
         </td>
         <td>
