@@ -68,7 +68,7 @@ type TimelineItem = {
 export function ActorSocialDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isCreation = id === "nuevo";
+  const isCreation = id === "nuevo" || !id || id === undefined;
 
   const [user, setUser] = useState<{ rol: string; name?: string; username?: string; municipalidadId: string | null } | null>(null);
   const [municipalidades, setMunicipalidades] = useState<MunicipalidadRecord[]>([]);
@@ -240,6 +240,13 @@ export function ActorSocialDetailPage() {
     const cp = centrosPoblados.find((c) => c.id === form.centroPobladoId);
     return cp ? cp.nombre : "";
   }, [centrosPoblados, form.centroPobladoId]);
+
+  const selectedCP = useMemo(() => {
+    return centrosPoblados.find((c) => c.id === form.centroPobladoId);
+  }, [centrosPoblados, form.centroPobladoId]);
+
+  const isUrbanoSelected = !!(selectedCP && selectedCP.tipo === "URBANO");
+  const isRuralSelected = !!(selectedCP && selectedCP.tipo === "RURAL");
 
   const establishmentName = useMemo(() => {
     if (!selectedGroup) return "";
@@ -754,8 +761,7 @@ export function ActorSocialDetailPage() {
           <div className="actores-form-panel">
             {/* Form Fields */}
             {user?.rol === "ADMIN_GENERAL" && isCreation ? (
-              <label className="field actores-full-width">
-                Municipalidad *
+              <div className="field actores-full-width">
                 <AutocompleteSearch
                   label="Municipalidad"
                   placeholder="Escriba para buscar municipalidad..."
@@ -769,7 +775,7 @@ export function ActorSocialDetailPage() {
                 {showValidationErrors && !form.municipalidadId && (
                   <span className="field-error-text">La municipalidad es obligatoria.</span>
                 )}
-              </label>
+              </div>
             ) : null}
 
             {/* DNI */}
@@ -839,7 +845,6 @@ export function ActorSocialDetailPage() {
                 value={form.gradoInstruccion}
                 onChange={(e) => setForm((curr) => ({ ...curr, gradoInstruccion: e.target.value }))}
                 required
-                disabled={isFormDisabled || form.estado !== "BORRADOR"}
               >
                 <option value="">Seleccione...</option>
                 {GRADOS_INSTRUCCION.map((g) => (
@@ -857,7 +862,6 @@ export function ActorSocialDetailPage() {
                 value={form.idiomaOrigen}
                 onChange={(e) => setForm((curr) => ({ ...curr, idiomaOrigen: e.target.value }))}
                 required
-                disabled={isFormDisabled || form.estado !== "BORRADOR"}
               >
                 <option value="">Seleccione...</option>
                 {IDIOMAS_ORIGEN.map((i) => (
@@ -877,7 +881,6 @@ export function ActorSocialDetailPage() {
                 value={form.celular}
                 onChange={(e) => setForm((curr) => ({ ...curr, celular: e.target.value.replace(/\D/g, "").slice(0, 9) }))}
                 required
-                disabled={isFormDisabled}
               />
               {showValidationErrors && form.celular.length !== 9 && (
                 <span className="field-error-text">El celular debe tener 9 dígitos.</span>
@@ -893,7 +896,6 @@ export function ActorSocialDetailPage() {
                 value={form.email}
                 onChange={(e) => setForm((curr) => ({ ...curr, email: e.target.value }))}
                 required
-                disabled={isFormDisabled}
               />
               {showValidationErrors && (!form.email || !form.email.includes("@")) && (
                 <span className="field-error-text">Ingrese un correo electrónico válido.</span>
@@ -924,62 +926,78 @@ export function ActorSocialDetailPage() {
                 value={form.direccion}
                 onChange={(e) => setForm((curr) => ({ ...curr, direccion: e.target.value }))}
                 required
-                disabled={isFormDisabled}
               />
             </label>
 
             {/* Grupo de Trabajo */}
-            <label className="field">
-              Grupo de Trabajo *
+            <div className="field">
               <AutocompleteSearch
                 label="Grupo de Trabajo"
                 placeholder="Escriba para buscar grupo..."
                 value={form.grupoTrabajoId}
                 displayValue={selectedGroup ? selectedGroup.nombreGrupo : ""}
                 options={gruposOptions}
-                onChange={(id) => setForm((curr) => ({ ...curr, grupoTrabajoId: id, grupoEstablecimientoId: "" }))}
+                onChange={(id: string) => setForm((curr) => ({ ...curr, grupoTrabajoId: id, grupoEstablecimientoId: "" }))}
                 onSearchMore={() => openSearchModal("grupo")}
                 disabled={isFormDisabled || form.estado !== "BORRADOR"}
                 required
               />
-            </label>
+            </div>
 
             {/* Establecimiento */}
-            <label className="field">
-              Establecimiento de Salud *
+            <div className="field">
               <AutocompleteSearch
                 label="Establecimiento de Salud"
                 placeholder="Seleccione grupo de trabajo primero..."
                 value={form.grupoEstablecimientoId}
                 displayValue={establishmentName}
                 options={establishmentsOptions}
-                onChange={(id) => setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }))}
+                onChange={(id: string) => setForm((curr) => ({ ...curr, grupoEstablecimientoId: id }))}
                 onSearchMore={() => openSearchModal("establecimiento")}
                 disabled={isFormDisabled || !form.grupoTrabajoId || form.estado !== "BORRADOR"}
                 required
               />
-            </label>
+            </div>
 
-            {/* Centro Poblado */}
-            <label className="field">
-              Centro Poblado (Manzana asignada / Rural)
+            {/* Centro Poblado Urbano */}
+            <div className="field">
               <AutocompleteSearch
-                label="Centro Poblado"
-                placeholder="Buscar centro poblado..."
-                value={form.centroPobladoId}
-                displayValue={cpSelectedName}
-                options={form.tipoActorSocialId && tiposActor.find((t) => t.id === form.tipoActorSocialId)?.codigo === "RURAL" ? ruralCentroPobladosOptions : urbanCentroPobladosOptions}
-                onChange={(id) => setForm((curr) => ({
+                label="Centro Poblado (Urbano)"
+                placeholder={isRuralSelected ? "Deshabilitado (Rural seleccionado)" : "Buscar centro poblado..."}
+                value={isUrbanoSelected ? form.centroPobladoId : ""}
+                displayValue={isUrbanoSelected ? cpSelectedName : ""}
+                options={urbanCentroPobladosOptions}
+                onChange={(id: string) => setForm((curr) => ({
                   ...curr,
                   centroPobladoId: id,
                   departamento: selectedMuni?.departamento || "",
                   provincia: selectedMuni?.provincia || "",
                   distrito: selectedMuni?.distrito || "",
                 }))}
-                onSearchMore={() => openSearchModal(form.tipoActorSocialId && tiposActor.find((t) => t.id === form.tipoActorSocialId)?.codigo === "RURAL" ? "centro_poblado_rural" : "centro_poblado")}
-                disabled={isFormDisabled}
+                onSearchMore={() => openSearchModal("centro_poblado")}
+                disabled={isFormDisabled || isRuralSelected}
               />
-            </label>
+            </div>
+
+            {/* Centro Poblado Rural */}
+            <div className="field">
+              <AutocompleteSearch
+                label="Centro Poblado Rural"
+                placeholder={isUrbanoSelected ? "Deshabilitado (Urbano seleccionado)" : "Buscar centro poblado rural..."}
+                value={isRuralSelected ? form.centroPobladoId : ""}
+                displayValue={isRuralSelected ? cpSelectedName : ""}
+                options={ruralCentroPobladosOptions}
+                onChange={(id: string) => setForm((curr) => ({
+                  ...curr,
+                  centroPobladoId: id,
+                  departamento: selectedMuni?.departamento || "",
+                  provincia: selectedMuni?.provincia || "",
+                  distrito: selectedMuni?.distrito || "",
+                }))}
+                onSearchMore={() => openSearchModal("centro_poblado_rural")}
+                disabled={isFormDisabled || isUrbanoSelected}
+              />
+            </div>
 
             {/* Inactivo Permanente */}
             {!isCreation && (

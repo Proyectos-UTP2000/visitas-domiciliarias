@@ -1,7 +1,7 @@
 import { apiRequest } from "../../shared/api";
 import { getAccessToken } from "../auth/auth-storage";
 import { API_BASE_URL } from "../../shared/config";
-import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial, ActorSocialArchivo } from "./actores-sociales-types";
+import type { ActorSocialRecord, ActorSocialFormState, EstadoActorSocial, ActorSocialArchivo, HistorialGeograficoRecord } from "./actores-sociales-types";
 
 const BASE_ENDPOINT = "/actores-sociales";
 
@@ -36,6 +36,7 @@ export function updateActor(
     inactivadoPermanentemente: boolean;
     sectoresIds: string[];
     sectoresACorregirIds: string[];
+    motivoAsignacion?: string;
   }
 ): Promise<ActorSocialRecord> {
   return apiRequest<ActorSocialRecord>(`${BASE_ENDPOINT}/${id}`, {
@@ -129,4 +130,8 @@ export async function downloadActorArchivo(archivoId: string, nombreArchivo: str
   a.click();
   a.remove();
   window.URL.revokeObjectURL(downloadUrl);
+}
+
+export function listHistorialGeografico(actorId: string): Promise<HistorialGeograficoRecord[]> {
+  return apiRequest<HistorialGeograficoRecord[]>(`${BASE_ENDPOINT}/${actorId}/historial-geografico`);
 }

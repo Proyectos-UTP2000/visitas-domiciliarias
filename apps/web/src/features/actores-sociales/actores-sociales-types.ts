@@ -67,3 +67,23 @@ export type ActorSocialFormState = {
   activo: boolean;
   estado: EstadoActorSocial;
 };
+
+export type HistorialGeograficoRecord = {
+  id: string;
+  actorSocialId: string;
+  sectorId: string;
+  tipoAccion: "ASIGNACION" | "DESASIGNACION";
+  motivo: string;
+  creadoPorId: string;
+  createdAt: string;
+  sector?: {
+    codigo: string;
+    nombreSector: string;
+    urbano?: {
+      manzana: string | null;
+    } | null;
+  };
+  creadoPor?: {
+    username: string;
+  };
+};
