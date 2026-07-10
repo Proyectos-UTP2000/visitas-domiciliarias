@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { LuSearch, LuFolder, LuChevronDown, LuChevronRight } from "react-icons/lu";
+import { LuSearch, LuFolder, LuChevronDown, LuChevronRight, LuArrowUp, LuArrowDown, LuArrowUpDown } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -89,6 +89,34 @@ export function SectoresRuralPage() {
     }));
   }
 
+  const expandAllGroups = () => {
+    if (!groupedRecords) return;
+    const expanded: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      expanded[key] = false;
+    });
+    setCollapsedGroups(expanded);
+  };
+
+  const collapseAllGroups = () => {
+    if (!groupedRecords) return;
+    const collapsed: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      collapsed[key] = true;
+    });
+    setCollapsedGroups(collapsed);
+  };
+
+  useEffect(() => {
+    if (groupBy && groupedRecords) {
+      const initialCollapsed: Record<string, boolean> = {};
+      Object.keys(groupedRecords).forEach((key) => {
+        initialCollapsed[key] = true;
+      });
+      setCollapsedGroups(initialCollapsed);
+    }
+  }, [groupBy, groupedRecords]);
+
   const filteredRecords = useMemo(() => {
     return filterSectores(records, query, "RURAL", muniFilter);
   }, [records, query, muniFilter]);
@@ -162,17 +190,27 @@ export function SectoresRuralPage() {
   }, [sortedRecords, groupBy, munisMap]);
 
   function handleSort(key: string) {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
+    if (sortConfig && sortConfig.key === key) {
+      if (sortConfig.direction === "asc") {
+        setSortConfig({ key, direction: "desc" });
+      } else {
+        setSortConfig(null);
+      }
+    } else {
+      setSortConfig({ key, direction: "asc" });
     }
-    setSortConfig({ key, direction });
   }
 
-  function getSortIcon(key: string) {
-    if (!sortConfig || sortConfig.key !== key) return " ↕";
-    return sortConfig.direction === "asc" ? " ▲" : " ▼";
-  }
+  const renderSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <LuArrowUpDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", opacity: 0.4 }} />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <LuArrowUp size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    ) : (
+      <LuArrowDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    );
+  };
 
   useEffect(() => {
     const session = getStoredSession();
@@ -463,40 +501,62 @@ export function SectoresRuralPage() {
           </div>
         )}
 
-        <div className="admin-actions-row">
-          <div className="admin-search-field">
-            <LuSearch className="search-icon" size={18} />
-            <input
-              type="text"
-              placeholder="Buscar por Ubigeo CC.PP, centro poblado o sector..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <div className="admin-filters-grid">
+            <div className="field">
+              <span>Buscar Sector Rural</span>
+              <div className="admin-search-field" style={{ border: "1px solid var(--border)", background: "white" }}>
+                <LuSearch className="search-icon" size={18} style={{ marginRight: "0.5rem" }} />
+                <input
+                  type="text"
+                  placeholder="Buscar por Ubigeo CC.PP, centro poblado o sector..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+            </div>
 
-          <div className="admin-actions-group" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
             {user?.rol === "ADMIN_GENERAL" && (
-              <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-                <span>Municipalidad:</span>
-                <select value={muniFilter} onChange={(e) => setMuniFilter(e.target.value)}>
-                  <option value="">Todas</option>
+              <div className="field">
+                <span>Municipalidad</span>
+                <select
+                  className="admin-select"
+                  value={muniFilter}
+                  onChange={(e) => setMuniFilter(e.target.value)}
+                >
+                  <option value="">Todas las Municipalidades</option>
                   {municipalidades.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.nombre}
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             )}
 
-            <label className="field" style={{ margin: 0, flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-              <span>Agrupar por:</span>
-              <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+            <div className="field">
+              <span>Agrupar Sectores Rurales por</span>
+              <select
+                className="admin-select"
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+              >
                 <option value="">Ninguno</option>
                 {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
                 <option value="centroPoblado">Centro Poblado</option>
               </select>
-            </label>
+              {groupBy !== "" && (
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
+                    Expandir todos
+                  </button>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
+                    Colapsar todos
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -519,26 +579,26 @@ export function SectoresRuralPage() {
                   />
                 </th>
                 <th onClick={() => handleSort("codigo")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Ubigeo del CC.PP{getSortIcon("codigo")}
+                  Ubigeo del CC.PP {renderSortIcon("codigo")}
                 </th>
                 <th onClick={() => handleSort("centroPoblado")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Centro Poblado{getSortIcon("centroPoblado")}
+                  Centro Poblado {renderSortIcon("centroPoblado")}
                 </th>
                 <th onClick={() => handleSort("nombreSector")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Sector{getSortIcon("nombreSector")}
+                  Sector {renderSortIcon("nombreSector")}
                 </th>
                 <th onClick={() => handleSort("latitud")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Latitud{getSortIcon("latitud")}
+                  Latitud {renderSortIcon("latitud")}
                 </th>
                 <th onClick={() => handleSort("longitud")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Longitud{getSortIcon("longitud")}
+                  Longitud {renderSortIcon("longitud")}
                 </th>
                 <th onClick={() => handleSort("poblacion")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Población{getSortIcon("poblacion")}
+                  Población {renderSortIcon("poblacion")}
                 </th>
                 {user?.rol === "ADMIN_GENERAL" && (
                   <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Municipalidad{getSortIcon("municipalidad")}
+                    Municipalidad {renderSortIcon("municipalidad")}
                   </th>
                 )}
                 <th>Estado</th>
