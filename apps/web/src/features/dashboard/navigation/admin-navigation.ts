@@ -95,11 +95,22 @@ export const navGroups: NavGroup[] = [
     label: "Niños",
     items: [
       {
+        label: "Responsables",
+        description: "Madres y tutores del Padrón Nominal.",
+        path: "/responsables",
+        roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL", "SUPERVISOR", "PERSONAL_SALUD", "ACTOR_SOCIAL"],
+      },
+      {
+        label: "Padrón de Niños",
+        description: "Registro de niños menores de 1 año.",
+        path: "/ninos",
+        roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL", "SUPERVISOR", "PERSONAL_SALUD", "ACTOR_SOCIAL"],
+      },
+      {
         label: "Panel de Visitas",
-        description: "Previsto para fases posteriores.",
+        description: "Seguimiento y registro de visitas de control.",
         path: "/ninos/visitas",
         roles: ["ADMIN_GENERAL", "ADMIN_MUNICIPAL", "SUPERVISOR", "PERSONAL_SALUD", "ACTOR_SOCIAL"],
-        status: "planned",
       },
     ],
   },

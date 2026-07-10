@@ -6,7 +6,7 @@ import {
 } from "./admin-navigation";
 
 const municipalidades = navGroups[0].items[0];
-const panelVisitas = navGroups.find((group) => group.label === "Niños")!.items[0];
+const panelVisitas = navGroups.find((group) => group.label === "Niños")!.items.find((item) => item.label === "Panel de Visitas")!;
 
 const expectedDocGroups = [
   "Configuración",
@@ -22,7 +22,7 @@ const expectedDocItemsByGroup = new Map([
   ["Grupo de Trabajo", ["Conformación de Grupo de Trabajo"]],
   ["Sectorización", ["Centro Poblado", "Sector Urbano", "Sector Rural"]],
   ["Actores Sociales", ["Registro Actores Sociales"]],
-  ["Niños", ["Panel de Visitas"]],
+  ["Niños", ["Responsables", "Padrón de Niños", "Panel de Visitas"]],
   ["Reportes", ["Reporte Actividad", "Otros reportes operativos"]],
 ]);
 
@@ -43,9 +43,9 @@ describe("admin navigation", () => {
     );
   });
 
-  it("keeps future modules visible but planned", () => {
+  it("marks active V3 modules as active", () => {
     expect(getNavItemAvailability(panelVisitas, "ADMIN_GENERAL")).toBe(
-      "planned",
+      "active",
     );
   });
 

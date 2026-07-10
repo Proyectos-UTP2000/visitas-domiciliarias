@@ -861,3 +861,53 @@
     color: var(--muted) !important;
     cursor: not-allowed;
 }
+
+.admin-select {
+    height: 2.9rem;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    outline: none;
+    padding: 0 1rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.admin-select:focus {
+    border-color: var(--primary);
+}
+
+/* Grilla de filtros horizontales responsiva */
+.admin-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.admin-filters-grid .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.admin-filters-grid .field span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.admin-filters-grid select,
+.admin-filters-grid .admin-select {
+    width: 100% !important;
+    height: 2.9rem !important;
+    padding: 0 1rem !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.55rem !important;
+    background: var(--surface-solid) !important;
+    color: var(--text) !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+}

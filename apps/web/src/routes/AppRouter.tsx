@@ -26,6 +26,9 @@ import { ActorSocialDetailPage } from "../features/actores-sociales/pages/ActorS
 import { SectoresUrbanoPage } from "../features/sectores/pages/SectoresUrbanoPage";
 import { SectoresRuralPage } from "../features/sectores/pages/SectoresRuralPage";
 import { CentrosPobladosPage } from "../features/sectores/pages/CentrosPobladosPage";
+import ResponsablesPage from "../features/responsables/pages/ResponsablesPage";
+import NinosPage from "../features/ninos/pages/NinosPage";
+import VisitasPage from "../features/visitas/pages/VisitasPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 function SessionExpirationListener() {
@@ -95,7 +98,9 @@ export function AppRouter() {
             <Route element={<ActoresSocialesPage />} path="/actores-sociales" />
             <Route element={<ActorSocialDetailPage />} path="/actores-sociales/nuevo" />
             <Route element={<ActorSocialDetailPage />} path="/actores-sociales/:id" />
-            <Route element={<ComingSoonPage />} path="/ninos/visitas" />
+            <Route element={<ResponsablesPage />} path="/responsables" />
+            <Route element={<NinosPage />} path="/ninos" />
+            <Route element={<VisitasPage />} path="/ninos/visitas" />
             <Route element={<ComingSoonPage />} path="/reportes/actividad" />
             <Route element={<ComingSoonPage />} path="/reportes/operativos" />
           </Route>
