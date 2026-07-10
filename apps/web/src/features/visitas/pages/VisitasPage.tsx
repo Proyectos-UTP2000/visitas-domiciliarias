@@ -280,18 +280,22 @@ export default function VisitasPage() {
       loadData();
       const muniId = user.rol === "ADMIN_MUNICIPAL" ? user.municipalidadId : null;
       const targetMuni = muniId || filterMuni;
-      if (targetMuni) {
-        listNinos(targetMuni)
+      if (user.rol === "ADMIN_GENERAL" || targetMuni) {
+        listNinos(targetMuni || null)
           .then((data) => setNinos(data.filter((n) => n.activo)))
           .catch(console.error);
 
-        listActores(targetMuni)
+        listActores(targetMuni || null)
           .then((data) => setActores(data.filter((a) => a.activo)))
           .catch(console.error);
 
-        listSectores(targetMuni)
+        listSectores(targetMuni || null)
           .then((data) => setSectores(data.filter((s) => s.activo)))
           .catch(console.error);
+      } else {
+        setNinos([]);
+        setActores([]);
+        setSectores([]);
       }
     }
   }, [user, filterMuni]);
@@ -1144,17 +1148,6 @@ export default function VisitasPage() {
                 <option value="SECTOR">Sector</option>
                 <option value="CENTRO_POBLADO">Centro Poblado</option>
               </select>
-              {groupBy !== "NONE" && (
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
-                    Expandir todos
-                  </button>
-                  <span style={{ color: "#ccc" }}>|</span>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
-                    Colapsar todos
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1292,6 +1285,33 @@ export default function VisitasPage() {
           </div>
         ) : (
           <div>
+            <div className="admin-table-meta" style={{ marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <span>{sortedNinos.length} Niños encontrados</span>
+                {groupBy !== "NONE" && (
+                  <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.85rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="admin-button is-ghost"
+                      onClick={expandAllGroups}
+                      style={{ padding: 0, height: "auto", fontSize: "0.85rem", color: "var(--primary)" }}
+                    >
+                      Expandir todos
+                    </button>
+                    <span style={{ color: "#ccc" }}>|</span>
+                    <button
+                      type="button"
+                      className="admin-button is-ghost"
+                      onClick={collapseAllGroups}
+                      style={{ padding: 0, height: "auto", fontSize: "0.85rem", color: "var(--primary)" }}
+                    >
+                      Colapsar todos
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
