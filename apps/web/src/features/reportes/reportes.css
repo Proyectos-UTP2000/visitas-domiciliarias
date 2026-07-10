@@ -59,13 +59,15 @@
     border-color: var(--primary);
 }
 
-/* Grid unificado de KPIs de 5 columnas para simetría perfecta */
+/* Grid unificado de KPIs de 5 columnas para simetría perfecta - Restringido a 1180px */
 .reports-kpi-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 1.25rem;
     margin-bottom: 1.5rem;
-    width: 100%;
+    width: min(1180px, calc(100% - 2rem));
+    margin-left: auto;
+    margin-right: auto;
 }
 
 @media (max-width: 1200px) {
@@ -201,7 +203,7 @@
     color: #ffffff;
 }
 
-/* Pestañas (Tabs) de Navegación */
+/* Pestañas (Tabs) de Navegación - Restringido a 1180px */
 .tabs-navigation-container {
     display: flex;
     gap: 0.5rem;
@@ -209,6 +211,9 @@
     margin-top: 1.5rem;
     margin-bottom: 1rem;
     padding-bottom: 1px;
+    width: min(1180px, calc(100% - 2rem));
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .tab-btn {
