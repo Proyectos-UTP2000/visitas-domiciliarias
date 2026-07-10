@@ -197,14 +197,27 @@ export class ActoresSocialesService {
       if (!ent) throw new HttpError(404, "Entidad no encontrada");
     }
 
-    if (input.sectoresIds && input.sectoresIds.length > 0) {
-      for (const sectorId of input.sectoresIds) {
-        const activeActor = await this.repository.findActiveBySector(sectorId, id);
-        if (activeActor) {
-          throw new HttpError(
-            400,
-            `El sector/manzana ya se encuentra asignado al actor social activo: ${activeActor.nombres} ${activeActor.apellidos}`
-          );
+    if (input.sectoresIds) {
+      const currentSectoresIds = existing.sectores?.map((s) => s.id) || [];
+      const hasChanges =
+        input.sectoresIds.length !== currentSectoresIds.length ||
+        input.sectoresIds.some((sid) => !currentSectoresIds.includes(sid));
+
+      if (hasChanges) {
+        if (!input.motivoAsignacion?.trim()) {
+          throw new HttpError(400, "El motivo de reasignación geográfica es obligatorio");
+        }
+
+        // Validate duplicates for newly added sectors
+        const added = input.sectoresIds.filter((sid) => !currentSectoresIds.includes(sid));
+        for (const sectorId of added) {
+          const activeActor = await this.repository.findActiveBySector(sectorId, id);
+          if (activeActor) {
+            throw new HttpError(
+              400,
+              `El sector/manzana ya se encuentra asignado al actor social activo: ${activeActor.nombres} ${activeActor.apellidos}`
+            );
+          }
         }
       }
     }
@@ -316,5 +329,10 @@ export class ActoresSocialesService {
         "Los archivos solo se pueden modificar en un actor social en estado registrado o aprobado"
       );
     }
+  }
+
+  async listHistorialGeografico(actorSocialId: string) {
+    await this.getById(actorSocialId);
+    return this.repository.listHistorialGeografico(actorSocialId);
   }
 }

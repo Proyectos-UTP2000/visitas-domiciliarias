@@ -46,6 +46,7 @@ export const actorSocialUpdateSchema = z.object({
   inactivadoPermanentemente: z.boolean().optional(),
   sectoresIds: z.array(z.uuid()).optional(),
   sectoresACorregirIds: z.array(z.uuid()).optional(),
+  motivoAsignacion: z.string().trim().optional(),
 });
 
 export const activoPayloadSchema = z.object({

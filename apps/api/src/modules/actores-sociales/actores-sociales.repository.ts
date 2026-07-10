@@ -100,25 +100,64 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
   }
 
   async update(id: string, data: ActorSocialUpdateInput): Promise<ActorSocialRecord> {
-    const { sectoresIds, sectoresACorregirIds, ...actorData } = data;
-    return this.prisma.actorSocial.update({
-      where: { id },
-      data: {
-        ...actorData,
-        entidadId: actorData.entidadId ?? null,
-        centroPobladoId: actorData.centroPobladoId ?? null,
-        grupoEstablecimientoId: actorData.grupoEstablecimientoId ?? null,
-        sectores: sectoresIds ? { set: sectoresIds.map((sid) => ({ id: sid })) } : undefined,
-        sectoresACorregir: sectoresACorregirIds
-          ? { set: sectoresACorregirIds.map((sid) => ({ id: sid })) }
-          : undefined,
-      },
-      include: {
-        sectores: true,
-        sectoresACorregir: true,
-        centroPoblado: true,
-        archivos: true,
-      },
+    const { sectoresIds, sectoresACorregirIds, motivoAsignacion, creadoPorId, ...actorData } = data;
+    return this.prisma.$transaction(async (tx) => {
+      if (sectoresIds && creadoPorId) {
+        const currentActor = await tx.actorSocial.findUnique({
+          where: { id },
+          select: { sectores: { select: { id: true } } },
+        });
+        const currentSectoresIds = currentActor?.sectores.map((s) => s.id) || [];
+
+        const added = sectoresIds.filter((sid) => !currentSectoresIds.includes(sid));
+        const removed = currentSectoresIds.filter((sid) => !sectoresIds.includes(sid));
+
+        const motivo = motivoAsignacion || "Actualización de sectores";
+
+        for (const sectorId of added) {
+          await tx.historialAsignacionTerritorial.create({
+            data: {
+              actorSocialId: id,
+              sectorId,
+              tipoAccion: "ASIGNACION",
+              motivo,
+              creadoPorId,
+            },
+          });
+        }
+
+        for (const sectorId of removed) {
+          await tx.historialAsignacionTerritorial.create({
+            data: {
+              actorSocialId: id,
+              sectorId,
+              tipoAccion: "DESASIGNACION",
+              motivo,
+              creadoPorId,
+            },
+          });
+        }
+      }
+
+      return tx.actorSocial.update({
+        where: { id },
+        data: {
+          ...actorData,
+          entidadId: actorData.entidadId ?? null,
+          centroPobladoId: actorData.centroPobladoId ?? null,
+          grupoEstablecimientoId: actorData.grupoEstablecimientoId ?? null,
+          sectores: sectoresIds ? { set: sectoresIds.map((sid) => ({ id: sid })) } : undefined,
+          sectoresACorregir: sectoresACorregirIds
+            ? { set: sectoresACorregirIds.map((sid) => ({ id: sid })) }
+            : undefined,
+        },
+        include: {
+          sectores: true,
+          sectoresACorregir: true,
+          centroPoblado: true,
+          archivos: true,
+        },
+      });
     }) as unknown as Promise<ActorSocialRecord>;
   }
 
@@ -227,6 +266,47 @@ export class PrismaActoresSocialesRepository implements ActoresSocialesRepositor
   async deleteArchivo(id: string) {
     return this.prisma.actorSocialArchivo.delete({
       where: { id },
+    });
+  }
+
+  async listHistorialGeografico(actorSocialId: string) {
+    return this.prisma.historialAsignacionTerritorial.findMany({
+      where: { actorSocialId },
+      include: {
+        sector: {
+          select: {
+            codigo: true,
+            nombreSector: true,
+            urbano: {
+              select: {
+                manzana: true,
+              },
+            },
+          },
+        },
+        creadoPor: {
+          select: {
+            username: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }) as any;
+  }
+
+  async createHistorialGeografico(
+    data: {
+      actorSocialId: string;
+      sectorId: string;
+      tipoAccion: "ASIGNACION" | "DESASIGNACION";
+      motivo: string;
+      creadoPorId: string;
+    },
+    tx?: any
+  ): Promise<void> {
+    const client = tx || this.prisma;
+    await client.historialAsignacionTerritorial.create({
+      data,
     });
   }
 }

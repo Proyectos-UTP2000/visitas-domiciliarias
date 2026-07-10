@@ -23,6 +23,8 @@ const mockRepository = {
   createArchivo: vi.fn(),
   findArchivoById: vi.fn(),
   deleteArchivo: vi.fn(),
+  listHistorialGeografico: vi.fn(),
+  createHistorialGeografico: vi.fn(),
 };
 
 const service = new ActoresSocialesService(
@@ -113,7 +115,7 @@ describe("ActoresSocialesService", () => {
   });
 
   it("throws error when updating and sector is already assigned to another active actor", async () => {
-    mockRepository.findById.mockResolvedValue({ id: "actor-1", municipalidadId: "mun-1", estado: "BORRADOR" });
+    mockRepository.findById.mockResolvedValue({ id: "actor-1", municipalidadId: "mun-1", estado: "BORRADOR", sectores: [] });
     mockRepository.findTipoActorById.mockResolvedValue({ id: "tipo-1" });
     mockRepository.findGrupoById.mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1" });
     mockRepository.findActiveBySector.mockResolvedValue({
@@ -130,10 +132,31 @@ describe("ActoresSocialesService", () => {
       direccion: "Calle Falsa 123",
       gradoInstruccion: "SUPERIOR",
       sectoresIds: ["sector-1"],
+      motivoAsignacion: "Reasignacion por pruebas",
     };
 
     await expect(service.update("actor-1", payload)).rejects.toThrow(
       new HttpError(400, "El sector/manzana ya se encuentra asignado al actor social activo: Maria Gomez")
+    );
+  });
+
+  it("throws error when updating sectors and no motivoAsignacion is provided", async () => {
+    mockRepository.findById.mockResolvedValue({ id: "actor-1", municipalidadId: "mun-1", estado: "BORRADOR", sectores: [] });
+    mockRepository.findTipoActorById.mockResolvedValue({ id: "tipo-1" });
+    mockRepository.findGrupoById.mockResolvedValue({ id: "grupo-1", municipalidadId: "mun-1" });
+
+    const payload = {
+      tipoActorSocialId: "tipo-1",
+      grupoTrabajoId: "grupo-1",
+      email: "juan@gmail.com",
+      celular: "987654321",
+      direccion: "Calle Falsa 123",
+      gradoInstruccion: "SUPERIOR",
+      sectoresIds: ["sector-1"],
+    };
+
+    await expect(service.update("actor-1", payload)).rejects.toThrow(
+      new HttpError(400, "El motivo de reasignación geográfica es obligatorio")
     );
   });
 

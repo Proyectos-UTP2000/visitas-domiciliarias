@@ -72,6 +72,8 @@ export type ActorSocialUpdateInput = {
   inactivadoPermanentemente?: boolean;
   sectoresIds?: string[];
   sectoresACorregirIds?: string[];
+  motivoAsignacion?: string;
+  creadoPorId?: string;
 };
 
 export type ActorSocialArchivoRecord = {
@@ -81,6 +83,26 @@ export type ActorSocialArchivoRecord = {
   rutaArchivo: string;
   mimeType: string;
   createdAt: Date;
+};
+
+export type HistorialAsignacionTerritorialRecord = {
+  id: string;
+  actorSocialId: string;
+  sectorId: string;
+  tipoAccion: "ASIGNACION" | "DESASIGNACION";
+  motivo: string;
+  creadoPorId: string;
+  createdAt: Date;
+  sector?: {
+    codigo: string;
+    nombreSector: string;
+    urbano?: {
+      manzana: string | null;
+    } | null;
+  };
+  creadoPor?: {
+    username: string;
+  };
 };
 
 export type ActoresSocialesRepository = {
@@ -111,4 +133,15 @@ export type ActoresSocialesRepository = {
   }): Promise<ActorSocialArchivoRecord>;
   findArchivoById(id: string): Promise<ActorSocialArchivoRecord | null>;
   deleteArchivo(id: string): Promise<ActorSocialArchivoRecord>;
+  listHistorialGeografico(actorSocialId: string): Promise<HistorialAsignacionTerritorialRecord[]>;
+  createHistorialGeografico(
+    data: {
+      actorSocialId: string;
+      sectorId: string;
+      tipoAccion: "ASIGNACION" | "DESASIGNACION";
+      motivo: string;
+      creadoPorId: string;
+    },
+    tx?: any
+  ): Promise<void>;
 };

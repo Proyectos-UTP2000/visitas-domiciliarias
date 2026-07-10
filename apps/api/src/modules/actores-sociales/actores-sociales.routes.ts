@@ -137,7 +137,12 @@ export function createActoresSocialesRouter(
         });
         return;
       }
-      res.json(await service.update(req.params.id, parsed.data));
+      res.json(
+        await service.update(req.params.id, {
+          ...parsed.data,
+          creadoPorId: authReq.auth!.userId,
+        })
+      );
     } catch (error) {
       next(error);
     }
@@ -353,6 +358,21 @@ export function createActoresSocialesRouter(
         fs.unlinkSync(filePath);
       }
       res.json(deleted);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:id/historial-geografico", async (req, res, next) => {
+    const authReq = req as AuthenticatedRequest;
+    const { rol, municipalidadId } = authReq.auth!;
+    try {
+      const record = await service.getById(req.params.id);
+      if (rol !== "ADMIN_GENERAL" && record.municipalidadId !== municipalidadId) {
+        res.status(403).json({ message: "No tiene permiso para acceder a este actor social" });
+        return;
+      }
+      res.json(await service.listHistorialGeografico(req.params.id));
     } catch (error) {
       next(error);
     }
