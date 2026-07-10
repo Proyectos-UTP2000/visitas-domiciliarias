@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LuSearch, LuChevronRight, LuChevronDown, LuFolder } from "react-icons/lu";
+import { LuSearch, LuChevronRight, LuChevronDown, LuFolder, LuArrowUp, LuArrowDown, LuArrowUpDown } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -90,17 +90,27 @@ export function ActoresSocialesPage() {
 
   function handleSort(key: string) {
     if (sortKey === key) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+      if (sortOrder === "asc") {
+        setSortOrder("desc");
+      } else {
+        setSortKey("NONE");
+      }
     } else {
       setSortKey(key);
       setSortOrder("asc");
     }
   }
 
-  function getSortIcon(key: string) {
-    if (sortKey !== key) return null;
-    return sortOrder === "asc" ? " ▲" : " ▼";
-  }
+  const renderSortIcon = (key: string) => {
+    if (sortKey !== key) {
+      return <LuArrowUpDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", opacity: 0.4 }} />;
+    }
+    return sortOrder === "asc" ? (
+      <LuArrowUp size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    ) : (
+      <LuArrowDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    );
+  };
 
   // Filtered & Sorted actors list
   const filteredActores = useMemo(() => {
@@ -125,6 +135,7 @@ export function ActoresSocialesPage() {
 
   const sortedActores = useMemo(() => {
     const sorted = [...filteredActores];
+    if (sortKey === "NONE") return sorted;
     sorted.sort((a, b) => {
       let aVal = "";
       let bVal = "";
@@ -193,6 +204,34 @@ export function ActoresSocialesPage() {
     }));
   }
 
+  const expandAllGroups = () => {
+    if (!groupedActores) return;
+    const expanded: Record<string, boolean> = {};
+    Object.keys(groupedActores).forEach((key) => {
+      expanded[key] = false;
+    });
+    setCollapsedGroups(expanded);
+  };
+
+  const collapseAllGroups = () => {
+    if (!groupedActores) return;
+    const collapsed: Record<string, boolean> = {};
+    Object.keys(groupedActores).forEach((key) => {
+      collapsed[key] = true;
+    });
+    setCollapsedGroups(collapsed);
+  };
+
+  useEffect(() => {
+    if (groupBy && groupedActores) {
+      const initialCollapsed: Record<string, boolean> = {};
+      Object.keys(groupedActores).forEach((key) => {
+        initialCollapsed[key] = true;
+      });
+      setCollapsedGroups(initialCollapsed);
+    }
+  }, [groupBy, groupedActores]);
+
   function handleAddClick() {
     navigate("/actores-sociales/nuevo");
   }
@@ -250,118 +289,79 @@ export function ActoresSocialesPage() {
           </div>
         )}
 
-        <div style={{ position: "relative" }}>
-          <div className="admin-actions-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.25rem" }}>
-            <div className="admin-search-field" style={{ position: "relative", flex: 1, maxWidth: "450px" }}>
-              <LuSearch className="search-icon" size={18} style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-              <input
-                type="text"
-                placeholder="Buscar por DNI, nombres o apellidos..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                style={{ width: "100%", paddingLeft: "2.5rem" }}
-              />
+        <div style={{ marginBottom: "1.5rem" }}>
+          <div className="admin-filters-grid">
+            <div className="field">
+              <span>Buscar Actor Social</span>
+              <div className="admin-search-field" style={{ border: "1px solid var(--border)", background: "white" }}>
+                <LuSearch style={{ marginRight: "0.5rem" }} />
+                <input
+                  type="text"
+                  placeholder="Buscar por DNI, nombres o apellidos..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="admin-actions-group" style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-              <label style={{ display: "flex", margin: 0, alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.9rem", color: "var(--muted)", fontWeight: "500" }}>Agrupar por:</span>
+            {user?.rol === "ADMIN_GENERAL" && (
+              <div className="field">
+                <span>Municipalidad</span>
                 <select
-                  value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value)}
-                  style={{
-                    height: "38px",
-                    background: "white",
-                    color: "#333",
-                    border: "1px solid #ccc",
-                    borderRadius: "0.25rem",
-                    padding: "0 0.5rem",
-                    cursor: "pointer",
-                  }}
+                  className="admin-select"
+                  value={muniFilter}
+                  onChange={(e) => setMuniFilter(e.target.value)}
                 >
-                  <option value="">Ninguno</option>
-                  {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
-                  <option value="tipoActor">Tipo de Actor</option>
-                  <option value="establecimiento">Establecimiento</option>
+                  <option value="">Todas las Municipalidades</option>
+                  {municipalidades.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre}
+                    </option>
+                  ))}
                 </select>
-              </label>
+              </div>
+            )}
 
-              <button
-                className={`admin-button is-ghost ${showFilters ? "is-active" : ""}`}
-                onClick={() => setShowFilters(!showFilters)}
-                style={{ height: "38px" }}
-                type="button"
+            <div className="field">
+              <span>Estado</span>
+              <select
+                className="admin-select"
+                value={estadoFilter}
+                onChange={(e) => setEstadoFilter(e.target.value)}
               >
-                Filtros {showFilters ? "▲" : "▼"}
-              </button>
+                <option value="">Todos los estados</option>
+                <option value="BORRADOR">Borrador</option>
+                <option value="REGISTRADO">Registrado</option>
+                <option value="VALIDADO">Validado</option>
+                <option value="APROBADO">Aprobado</option>
+              </select>
+            </div>
+
+            <div className="field">
+              <span>Agrupar Actores Sociales por</span>
+              <select
+                className="admin-select"
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value)}
+              >
+                <option value="">Ninguno</option>
+                {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
+                <option value="tipoActor">Tipo de Actor</option>
+                <option value="establecimiento">Establecimiento</option>
+              </select>
+              {groupBy !== "" && (
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
+                    Expandir todos
+                  </button>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
+                    Colapsar todos
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-
-          {showFilters && (
-            <div
-              className="admin-filters-panel"
-              style={{
-                position: "absolute",
-                top: "calc(100% - 0.25rem)",
-                right: 0,
-                zIndex: 100,
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-                padding: "1rem",
-                background: "white",
-                borderRadius: "8px",
-                border: "1px solid var(--border)",
-                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-                width: "300px",
-              }}
-            >
-              {user?.rol === "ADMIN_GENERAL" && (
-                <label className="field">
-                  <span>Municipalidad</span>
-                  <select
-                    value={muniFilter}
-                    onChange={(e) => setMuniFilter(e.target.value)}
-                  >
-                    <option value="">Todas</option>
-                    {municipalidades.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <label className="field">
-                <span>Estado</span>
-                <select
-                  value={estadoFilter}
-                  onChange={(e) => setEstadoFilter(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  <option value="BORRADOR">Borrador</option>
-                  <option value="REGISTRADO">Registrado</option>
-                  <option value="VALIDADO">Validado</option>
-                  <option value="APROBADO">Aprobado</option>
-                </select>
-              </label>
-
-              <button
-                className="admin-button is-secondary"
-                onClick={() => {
-                  setEstadoFilter("");
-                  if (user?.rol === "ADMIN_GENERAL") {
-                    setMuniFilter("");
-                  }
-                }}
-                style={{ marginTop: "0.5rem" }}
-                type="button"
-              >
-                Limpiar Filtros
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="admin-table-wrap">
@@ -370,23 +370,23 @@ export function ActoresSocialesPage() {
               <tr>
                 <th style={{ width: "40px" }}><input type="checkbox" readOnly /></th>
                 <th onClick={() => handleSort("establecimiento")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Establecimiento Salud{getSortIcon("establecimiento")}
+                  Establecimiento Salud {renderSortIcon("establecimiento")}
                 </th>
                 <th onClick={() => handleSort("dni")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  DNI{getSortIcon("dni")}
+                  DNI {renderSortIcon("dni")}
                 </th>
                 <th onClick={() => handleSort("apellidos")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Apellidos{getSortIcon("apellidos")}
+                  Apellidos {renderSortIcon("apellidos")}
                 </th>
                 <th onClick={() => handleSort("nombres")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Nombres{getSortIcon("nombres")}
+                  Nombres {renderSortIcon("nombres")}
                 </th>
                 <th onClick={() => handleSort("tipoActor")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Tipo Actor Social{getSortIcon("tipoActor")}
+                  Tipo Actor Social {renderSortIcon("tipoActor")}
                 </th>
                 {user?.rol === "ADMIN_GENERAL" && (
                   <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Municipalidad{getSortIcon("municipalidad")}
+                    Municipalidad {renderSortIcon("municipalidad")}
                   </th>
                 )}
                 <th>Estado</th>
