@@ -1,20 +1,27 @@
+/* Contenedor principal de KPIs y Gráficos alineados */
+.kpi-and-charts-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: stretch;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
 /* Grid para tarjetas KPI */
 .reports-kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.25rem;
-    margin-bottom: 1.5rem;
-    margin-top: 0.5rem;
 }
 
-/* Tarjeta KPI base */
+/* Tarjeta KPI premium con sombreado y transición */
 .kpi-card-custom {
     background: var(--surface-solid);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 1.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 10px rgba(16, 32, 51, 0.04);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -23,57 +30,53 @@
 }
 
 .kpi-card-custom:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 22px rgba(16, 32, 51, 0.09);
 }
 
-/* Encabezado de la tarjeta */
 .kpi-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.82rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--muted);
 }
 
-/* Iconos de colores según el KPI */
 .kpi-icon {
-    font-size: 1.35rem;
+    font-size: 1.4rem;
     opacity: 0.85;
 }
 
-/* Valor del KPI */
 .kpi-card-value {
-    font-size: 2rem;
+    font-size: 2.1rem;
     font-weight: 800;
     color: var(--text);
     line-height: 1;
     margin: 0.25rem 0;
 }
 
-/* Descripción */
 .kpi-card-desc {
     font-size: 0.78rem;
     color: var(--muted);
 }
 
-/* Temas de color para bordes izquierdos o bordes superiores */
-.kpi-card-custom.purple { border-left: 4px solid #8b5cf6; }
+/* Bordes coloridos sutiles para KPIs */
+.kpi-card-custom.purple { border-top: 4px solid #8b5cf6; }
 .kpi-card-custom.purple .kpi-icon { color: #8b5cf6; }
 
-.kpi-card-custom.green { border-left: 4px solid #10b981; }
+.kpi-card-custom.green { border-top: 4px solid #10b981; }
 .kpi-card-custom.green .kpi-icon { color: #10b981; }
 
-.kpi-card-custom.blue { border-left: 4px solid #3b82f6; }
+.kpi-card-custom.blue { border-top: 4px solid #3b82f6; }
 .kpi-card-custom.blue .kpi-icon { color: #3b82f6; }
 
-.kpi-card-custom.orange { border-left: 4px solid #f97316; }
+.kpi-card-custom.orange { border-top: 4px solid #f97316; }
 .kpi-card-custom.orange .kpi-icon { color: #f97316; }
 
-.kpi-card-custom.indigo { border-left: 4px solid #6366f1; }
+.kpi-card-custom.indigo { border-top: 4px solid #6366f1; }
 .kpi-card-custom.indigo .kpi-icon { color: #6366f1; }
 
 /* Tarjeta especial con gradiente primario */
@@ -83,7 +86,7 @@
 }
 
 .kpi-card-custom.primary-gradient:hover {
-    box-shadow: 0 12px 20px -3px rgba(15, 118, 110, 0.35);
+    box-shadow: 0 12px 24px rgba(15, 118, 110, 0.35);
 }
 
 .text-white {
@@ -94,11 +97,11 @@
     color: rgba(255, 255, 255, 0.75) !important;
 }
 
-/* Barra de progreso custom para la tarjeta especial */
+/* Barra de progreso en tarjeta especial */
 .progress-container-custom {
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.25);
     border-radius: 9999px;
     overflow: hidden;
     margin: 0.35rem 0;
@@ -108,10 +111,235 @@
     height: 100%;
     background: #ffffff;
     border-radius: 9999px;
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Filtros */
+/* Tarjeta de Gráfico Donut SVG */
+.chart-card-premium {
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: 0 4px 10px rgba(16, 32, 51, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 250px;
+    transition: all 0.3s ease;
+}
+
+.chart-card-premium:hover {
+    box-shadow: 0 12px 22px rgba(16, 32, 51, 0.09);
+    transform: translateY(-3px);
+}
+
+/* Contenedor interno del Donut Chart */
+.donut-chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    width: 100%;
+}
+
+.donut-svg-wrap {
+    position: relative;
+    width: 105px;
+    height: 105px;
+}
+
+.donut-svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.donut-progress-circle {
+    transition: stroke-dashoffset 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.donut-text-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.donut-percentage {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+}
+
+.donut-subtitle {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-top: 0.15rem;
+}
+
+.donut-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.1rem;
+}
+
+.donut-label {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.donut-value {
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+/* Pestañas (Tabs) de Navegación */
+.tabs-navigation-container {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    margin-bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: var(--primary);
+    background: var(--surface-muted);
+    border-top-left-radius: var(--radius-sm);
+    border-top-right-radius: var(--radius-sm);
+}
+
+.tab-btn.is-active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Buscador de Tabla a la medida */
+.search-box-custom {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 280px;
+    max-width: 100%;
+}
+
+.search-icon-custom {
+    position: absolute;
+    left: 0.85rem;
+    color: var(--muted);
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+
+.search-input-custom {
+    width: 100%;
+    padding: 0.55rem 0.85rem 0.55rem 2.35rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-solid);
+    color: var(--text);
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input-custom:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* Paginación de Tabla */
+.pagination-container-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.pagination-info {
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pagination-btn {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-solid);
+    color: var(--text);
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-page-indicator {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+/* Card premium con sombreado especial */
+.card-premium {
+    box-shadow: 0 10px 25px rgba(16, 32, 51, 0.05) !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* Filtros generales */
 .filter-section {
     margin-bottom: 1.5rem;
 }
@@ -127,9 +355,18 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-weight: 700;
-    font-size: 1rem;
+    font-weight: 800;
+    font-size: 0.98rem;
     color: var(--text);
+}
+
+.pulse-icon {
+    animation: iconPulse 2s infinite ease-in-out;
+}
+
+@keyframes iconPulse {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.1); opacity: 1; color: var(--primary); }
 }
 
 .filter-grid {
@@ -145,11 +382,11 @@
 }
 
 .loading-spinner {
-    font-weight: 600;
+    font-weight: 700;
     color: var(--muted);
     position: relative;
     display: inline-block;
-    padding-left: 2rem;
+    padding-left: 2.2rem;
 }
 
 .loading-spinner::before {
@@ -158,12 +395,12 @@
     left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 1.2rem;
-    height: 1.2rem;
-    border: 3px solid var(--border);
+    width: 1.3rem;
+    height: 1.3rem;
+    border: 3.5px solid var(--border);
     border-top-color: var(--primary);
     border-radius: 50%;
-    animation: spin 1s infinite linear;
+    animation: spin 0.85s infinite linear;
 }
 
 @keyframes spin {
@@ -171,9 +408,35 @@
     100% { transform: translateY(-50%) rotate(360deg); }
 }
 
-/* Responsividad general */
+/* Animaciones */
+.animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Ajustes de responsividad */
+@media (max-width: 900px) {
+    .kpi-and-charts-layout {
+        flex-direction: column;
+    }
+    .chart-card-premium {
+        width: 100%;
+    }
+}
+
 @media (max-width: 768px) {
     .filter-grid {
         grid-template-columns: 1fr;
+    }
+    .search-box-custom {
+        width: 100%;
+    }
+    .pagination-container-custom {
+        flex-direction: column;
+        align-items: center;
     }
 }

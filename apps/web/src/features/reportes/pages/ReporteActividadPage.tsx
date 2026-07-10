@@ -7,7 +7,12 @@ import {
   LuClock, 
   LuTriangleAlert, 
   LuRefreshCw, 
-  LuUsers 
+  LuUsers,
+  LuSearch,
+  LuChevronLeft,
+  LuChevronRight,
+  LuFolder,
+  LuList
 } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
@@ -19,6 +24,45 @@ import type { ActorSocialRecord } from "../../actores-sociales/actores-sociales-
 import type { SectorRecord } from "../../sectores/sectores-types";
 import type { ReporteActividadData } from "../reportes-types";
 import "../reportes.css";
+
+// Donut Chart SVG premium hecho en casa
+function DonutChart({ value, total, color, label, subtitle }: { value: number; total: number; color: string; label: string; subtitle?: string }) {
+  const percentage = total > 0 ? (value / total) * 100 : 0;
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="donut-chart-container">
+      <div className="donut-svg-wrap">
+        <svg viewBox="0 0 100 100" className="donut-svg">
+          <circle cx="50" cy="50" r={radius} fill="transparent" stroke="var(--border)" strokeWidth="7" />
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="transparent"
+            stroke={color}
+            strokeWidth="7"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            className="donut-progress-circle"
+            style={{ stroke: color }}
+          />
+        </svg>
+        <div className="donut-text-overlay">
+          <span className="donut-percentage">{Math.round(percentage)}%</span>
+          {subtitle && <span className="donut-subtitle">{subtitle}</span>}
+        </div>
+      </div>
+      <div className="donut-info">
+        <span className="donut-label">{label}</span>
+        <span className="donut-value">{value} de {total}</span>
+      </div>
+    </div>
+  );
+}
 
 export function ReporteActividadPage() {
   const [user, setUser] = useState<{ rol: string; name?: string; username?: string; municipalidadId: string | null } | null>(null);
@@ -35,6 +79,14 @@ export function ReporteActividadPage() {
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [showFilters, setShowFilters] = useState(true);
+
+  // Tab view selection
+  const [activeTab, setActiveTab] = useState<"resumen" | "detalles">("resumen");
+
+  // Local search and page for detailed view
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Report results
   const [reportData, setReportData] = useState<ReporteActividadData | null>(null);
@@ -117,6 +169,7 @@ export function ReporteActividadPage() {
       });
 
       setReportData(data);
+      setCurrentPage(1); // Reset page on new data
     } catch (err: any) {
       setError(err.message || "Error al obtener el reporte de actividad.");
     } finally {
@@ -141,6 +194,30 @@ export function ReporteActividadPage() {
     });
     return map;
   }, [municipalidades]);
+
+  // Local filtering for detailed table
+  const filteredDetails = useMemo(() => {
+    if (!reportData) return [];
+    if (!searchQuery.trim()) return reportData.detalles;
+    const lowerQuery = searchQuery.toLowerCase();
+    return reportData.detalles.filter(
+      (d) =>
+        d.ninoDni.includes(lowerQuery) ||
+        d.ninoNombre.toLowerCase().includes(lowerQuery) ||
+        d.ninoApellidos.toLowerCase().includes(lowerQuery) ||
+        d.actorNombre.toLowerCase().includes(lowerQuery) ||
+        d.sectorNombre.toLowerCase().includes(lowerQuery) ||
+        d.estado.toLowerCase().includes(lowerQuery)
+    );
+  }, [reportData, searchQuery]);
+
+  // Paged details
+  const pagedDetails = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredDetails.slice(start, start + itemsPerPage);
+  }, [filteredDetails, currentPage]);
+
+  const totalPages = Math.ceil(filteredDetails.length / itemsPerPage);
 
   function exportToCSV() {
     if (!reportData || reportData.detalles.length === 0) return;
@@ -176,7 +253,7 @@ export function ReporteActividadPage() {
       ].join(";"))
     ];
 
-    const csvContent = "\uFEFF" + csvRows.join("\n"); // Add BOM for excel spanish encoding support
+    const csvContent = "\uFEFF" + csvRows.join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -197,7 +274,7 @@ export function ReporteActividadPage() {
 
   return (
     <>
-      <section className="admin-page-heading">
+      <section className="admin-page-heading animate-fade-in">
         <div>
           <h1>Reporte de Actividad</h1>
           <p>Métricas de cobertura y desempeño operativo de visitas domiciliarias programadas y ejecutadas.</p>
@@ -211,10 +288,10 @@ export function ReporteActividadPage() {
       </section>
 
       {/* FILTROS */}
-      <section className="admin-content-card filter-section">
+      <section className="admin-content-card filter-section card-premium">
         <div className="filter-header" onClick={() => setShowFilters(!showFilters)}>
           <div className="filter-title">
-            <LuFilter />
+            <LuFilter className="pulse-icon" />
             <span>Filtros de Reporte</span>
           </div>
           <button className="admin-button is-ghost size-sm">
@@ -223,7 +300,7 @@ export function ReporteActividadPage() {
         </div>
 
         {showFilters && (
-          <div className="filter-grid" style={{ marginTop: "1rem" }}>
+          <div className="filter-grid" style={{ marginTop: "1.25rem" }}>
             {user?.rol === "ADMIN_GENERAL" && (
               <div className="form-group">
                 <label htmlFor="muniFilter">Municipalidad</label>
@@ -306,9 +383,9 @@ export function ReporteActividadPage() {
                 type="button" 
                 onClick={handleResetFilters} 
                 className="admin-button is-secondary" 
-                style={{ width: "100%" }}
+                style={{ width: "100%", fontWeight: "600" }}
               >
-                Restablecer Filtros
+                Limpiar Filtros
               </button>
             </div>
           </div>
@@ -316,7 +393,7 @@ export function ReporteActividadPage() {
       </section>
 
       {user?.rol === "ADMIN_GENERAL" && !muniFilter ? (
-        <section className="admin-page-heading admin-empty-state">
+        <section className="admin-page-heading admin-empty-state card-premium">
           <div>
             <p className="eyebrow">ADMIN GENERAL</p>
             <h1>Selecciona una Municipalidad</h1>
@@ -324,156 +401,301 @@ export function ReporteActividadPage() {
           </div>
         </section>
       ) : isLoading ? (
-        <div style={{ textAlign: "center", padding: "3rem" }}>
-          <div className="loading-spinner">Cargando reporte de actividad...</div>
+        <div style={{ textAlign: "center", padding: "4rem" }}>
+          <div className="loading-spinner">Generando reporte de visitas...</div>
         </div>
       ) : error ? (
         <p className="alert alert-error">{error}</p>
       ) : reportData ? (
         <>
-          {/* KPI CARDS */}
-          <div className="reports-kpi-grid">
-            <div className="kpi-card-custom purple">
-              <div className="kpi-card-header">
-                <span>Total Visitas</span>
-                <LuCalendar className="kpi-icon" />
+          {/* KPI CARDS & DONUT DIAGRAMS */}
+          <div className="kpi-and-charts-layout">
+            <div className="reports-kpi-grid" style={{ flex: 3 }}>
+              <div className="kpi-card-custom purple border-gradient">
+                <div className="kpi-card-header">
+                  <span>Total Visitas</span>
+                  <LuCalendar className="kpi-icon" />
+                </div>
+                <div className="kpi-card-value">{reportData.summary.total}</div>
+                <div className="kpi-card-desc">Visitas programadas en el periodo</div>
               </div>
-              <div className="kpi-card-value">{reportData.summary.total}</div>
-              <div className="kpi-card-desc">Visitas programadas en el periodo</div>
+
+              <div className="kpi-card-custom green border-gradient">
+                <div className="kpi-card-header">
+                  <span>Ejecutadas</span>
+                  <LuCircleCheck className="kpi-icon" />
+                </div>
+                <div className="kpi-card-value">{reportData.summary.ejecutadas}</div>
+                <div className="kpi-card-desc">Visitas completadas exitosamente</div>
+              </div>
+
+              <div className="kpi-card-custom blue border-gradient">
+                <div className="kpi-card-header">
+                  <span>Pendientes</span>
+                  <LuClock className="kpi-icon" />
+                </div>
+                <div className="kpi-card-value">{reportData.summary.programadas}</div>
+                <div className="kpi-card-desc">Visitas agendadas por realizar</div>
+              </div>
+
+              <div className="kpi-card-custom orange border-gradient">
+                <div className="kpi-card-header">
+                  <span>Inconclusas / Reprog.</span>
+                  <LuTriangleAlert className="kpi-icon" />
+                </div>
+                <div className="kpi-card-value">
+                  {reportData.summary.inconclusas} / {reportData.summary.reprogramadas}
+                </div>
+                <div className="kpi-card-desc">Visitas con problemas de ejecución</div>
+              </div>
             </div>
 
-            <div className="kpi-card-custom green">
-              <div className="kpi-card-header">
-                <span>Ejecutadas</span>
-                <LuCircleCheck className="kpi-icon" />
-              </div>
-              <div className="kpi-card-value">{reportData.summary.ejecutadas}</div>
-              <div className="kpi-card-desc">Visitas completadas exitosamente</div>
-            </div>
-
-            <div className="kpi-card-custom blue">
-              <div className="kpi-card-header">
-                <span>Pendientes</span>
-                <LuClock className="kpi-icon" />
-              </div>
-              <div className="kpi-card-value">{reportData.summary.programadas}</div>
-              <div className="kpi-card-desc">Visitas agendadas por realizar</div>
-            </div>
-
-            <div className="kpi-card-custom orange">
-              <div className="kpi-card-header">
-                <span>Inconclusas / Reprog.</span>
-                <LuTriangleAlert className="kpi-icon" />
-              </div>
-              <div className="kpi-card-value">
-                {reportData.summary.inconclusas} / {reportData.summary.reprogramadas}
-              </div>
-              <div className="kpi-card-desc">Visitas con problemas de ejecución</div>
-            </div>
-
-            <div className="kpi-card-custom primary-gradient text-white">
-              <div className="kpi-card-header">
-                <span className="text-white-muted">Cobertura de Visitas</span>
-                <LuRefreshCw className="kpi-icon text-white" />
-              </div>
-              <div className="kpi-card-value text-white">{reportData.summary.porcentajeEjecucion}%</div>
-              <div className="progress-container-custom">
-                <div 
-                  className="progress-bar-custom" 
-                  style={{ width: `${reportData.summary.porcentajeEjecucion}%` }}
-                ></div>
-              </div>
-              <div className="kpi-card-desc text-white-muted">Tasa de cumplimiento general</div>
+            <div className="chart-card-premium" style={{ flex: 1.2 }}>
+              <DonutChart 
+                value={reportData.summary.ejecutadas} 
+                total={reportData.summary.total} 
+                color="var(--primary)" 
+                label="Cobertura General de Visitas"
+                subtitle="ejecución"
+              />
             </div>
           </div>
 
-          {/* DESEMPEÑO ACTORES SOCIALES */}
-          <section className="admin-content-card" style={{ marginTop: "1.5rem" }}>
-            <div className="admin-card-toolbar">
-              <div>
-                <h2>Desempeño de Actores Sociales</h2>
-                <p>Lista de actores sociales asignados a la municipalidad y su porcentaje de cobertura de visitas.</p>
-              </div>
-              <div className="action-buttons-wrap">
-                <button
-                  type="button"
-                  onClick={exportToCSV}
-                  disabled={reportData.detalles.length === 0}
-                  className="admin-button is-primary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
-                >
-                  <LuDownload />
-                  <span>Exportar Detalles a CSV</span>
-                </button>
-              </div>
-            </div>
+          {/* VISTAS DE PESTAÑAS (TABS) */}
+          <div className="tabs-navigation-container">
+            <button
+              className={`tab-btn ${activeTab === "resumen" ? "is-active" : ""}`}
+              onClick={() => setActiveTab("resumen")}
+            >
+              <LuFolder />
+              <span>Resumen y Actores</span>
+            </button>
+            <button
+              className={`tab-btn ${activeTab === "detalles" ? "is-active" : ""}`}
+              onClick={() => setActiveTab("detalles")}
+            >
+              <LuList />
+              <span>Listado de Visitas ({reportData.detalles.length})</span>
+            </button>
+          </div>
 
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>DNI</th>
-                    <th>Actor Social</th>
-                    <th style={{ textAlign: "center" }}>Asignadas</th>
-                    <th style={{ textAlign: "center" }}>Ejecutadas</th>
-                    <th style={{ textAlign: "center" }}>Pendientes</th>
-                    <th style={{ textAlign: "center" }}>Inconclusas</th>
-                    <th style={{ textAlign: "center" }}>Reprogramadas</th>
-                    <th style={{ textAlign: "right" }}>% Cobertura</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.actores.length === 0 ? (
+          {activeTab === "resumen" ? (
+            /* DESEMPEÑO ACTORES SOCIALES */
+            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+              <div className="admin-card-toolbar">
+                <div>
+                  <h2>Desempeño de Actores Sociales</h2>
+                  <p>Porcentaje de cobertura y cumplimiento de visitas de cada actor social asignado.</p>
+                </div>
+                <div className="action-buttons-wrap">
+                  <button
+                    type="button"
+                    onClick={exportToCSV}
+                    disabled={reportData.detalles.length === 0}
+                    className="admin-button is-primary"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    <LuDownload />
+                    <span>Exportar Detalles a CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "2rem", color: "var(--muted)" }}>
-                        No hay actores sociales registrados.
-                      </td>
+                      <th>DNI</th>
+                      <th>Actor Social</th>
+                      <th style={{ textAlign: "center" }}>Asignadas</th>
+                      <th style={{ textAlign: "center" }}>Ejecutadas</th>
+                      <th style={{ textAlign: "center" }}>Pendientes</th>
+                      <th style={{ textAlign: "center" }}>Inconclusas</th>
+                      <th style={{ textAlign: "center" }}>Reprogramadas</th>
+                      <th style={{ textAlign: "right" }}>% Cobertura</th>
                     </tr>
-                  ) : (
-                    reportData.actores.map((act) => (
-                      <tr key={act.actorId}>
-                        <td>{act.dni}</td>
-                        <td>
-                          <strong>{act.apellidos}, {act.nombres}</strong>
-                        </td>
-                        <td style={{ textAlign: "center" }}>{act.total}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <span className="status-pill is-active">{act.ejecutadas}</span>
-                        </td>
-                        <td style={{ textAlign: "center" }}>{act.programadas}</td>
-                        <td style={{ textAlign: "center" }}>
-                          {act.inconclusas > 0 ? (
-                            <span className="status-pill is-suspended">{act.inconclusas}</span>
-                          ) : (
-                            0
-                          )}
-                        </td>
-                        <td style={{ textAlign: "center" }}>{act.reprogramadas}</td>
-                        <td style={{ textAlign: "right" }}>
-                          <span 
-                            className={`status-pill ${
-                              act.porcentajeEjecucion >= 80 
-                                ? "is-active" 
-                                : act.porcentajeEjecucion >= 50 
-                                ? "is-pending" 
-                                : "is-suspended"
-                            }`}
-                            style={{ fontWeight: "bold" }}
-                          >
-                            {act.porcentajeEjecucion}%
-                          </span>
+                  </thead>
+                  <tbody>
+                    {reportData.actores.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>
+                          No hay actores sociales registrados con visitas asignadas.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                    ) : (
+                      reportData.actores.map((act) => (
+                        <tr key={act.actorId}>
+                          <td>{act.dni}</td>
+                          <td>
+                            <strong>{act.apellidos}, {act.nombres}</strong>
+                          </td>
+                          <td style={{ textAlign: "center" }}>{act.total}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className="status-pill is-active">{act.ejecutadas}</span>
+                          </td>
+                          <td style={{ textAlign: "center" }}>{act.programadas}</td>
+                          <td style={{ textAlign: "center" }}>
+                            {act.inconclusas > 0 ? (
+                              <span className="status-pill is-suspended">{act.inconclusas}</span>
+                            ) : (
+                              0
+                            )}
+                          </td>
+                          <td style={{ textAlign: "center" }}>{act.reprogramadas}</td>
+                          <td style={{ textAlign: "right" }}>
+                            <span 
+                              className={`status-pill ${
+                                act.porcentajeEjecucion >= 80 
+                                  ? "is-active" 
+                                  : act.porcentajeEjecucion >= 50 
+                                  ? "is-pending" 
+                                  : "is-suspended"
+                              }`}
+                              style={{ fontWeight: "800" }}
+                            >
+                              {act.porcentajeEjecucion}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : (
+            /* DETALLE DE TODAS LAS VISITAS CON BUSCADOR Y PAGINACIÓN */
+            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+              <div className="admin-card-toolbar" style={{ flexWrap: "wrap", gap: "1rem" }}>
+                <div style={{ flex: 1, minWidth: "250px" }}>
+                  <h2>Listado Detallado de Visitas</h2>
+                  <p>Explora y busca visitas específicas en base a los filtros generales.</p>
+                </div>
+                
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <div className="search-box-custom">
+                    <LuSearch className="search-icon-custom" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por niño, actor, DNI, sector..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="search-input-custom"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exportToCSV}
+                    disabled={reportData.detalles.length === 0}
+                    className="admin-button is-primary"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    <LuDownload />
+                    <span>CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>DNI Niño</th>
+                      <th>Niño</th>
+                      <th>Fecha Prog.</th>
+                      <th>Fecha Ejec.</th>
+                      <th>Estado</th>
+                      <th>Actor Social</th>
+                      <th>Sector</th>
+                      <th style={{ textAlign: "center" }}>Consejería</th>
+                      <th>Observaciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDetails.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>
+                          No se encontraron visitas que coincidan con la búsqueda.
+                        </td>
+                      </tr>
+                    ) : (
+                      pagedDetails.map((det) => (
+                        <tr key={det.id}>
+                          <td>{det.ninoDni}</td>
+                          <td>
+                            <strong>{det.ninoApellidos}, {det.ninoNombre}</strong>
+                          </td>
+                          <td>{det.fechaProgramada}</td>
+                          <td>{det.fechaEjecucion || "-"}</td>
+                          <td>
+                            <span 
+                              className={`status-pill ${
+                                det.estado === "EJECUTADA" 
+                                  ? "is-active" 
+                                  : det.estado === "PROGRAMADA" 
+                                  ? "is-pending" 
+                                  : "is-suspended"
+                              }`}
+                            >
+                              {det.estado}
+                            </span>
+                          </td>
+                          <td>{det.actorNombre}</td>
+                          <td>{det.sectorNombre}</td>
+                          <td style={{ textAlign: "center" }}>
+                            <span className={`status-pill ${det.consejeriaBrindada ? "is-active" : "is-suspended"}`}>
+                              {det.consejeriaBrindada ? "SÍ" : "NO"}
+                            </span>
+                          </td>
+                          <td title={det.comentarios} style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {det.comentarios || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINACIÓN */}
+              {totalPages > 1 && (
+                <div className="pagination-container-custom">
+                  <span className="pagination-info">
+                    Mostrando {Math.min(filteredDetails.length, (currentPage - 1) * itemsPerPage + 1)}-
+                    {Math.min(filteredDetails.length, currentPage * itemsPerPage)} de {filteredDetails.length} visitas
+                  </span>
+                  <div className="pagination-buttons">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <LuChevronLeft />
+                      <span>Anterior</span>
+                    </button>
+                    <span className="pagination-page-indicator">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <span>Siguiente</span>
+                      <LuChevronRight />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </>
       ) : (
-        <div style={{ textAlign: "center", padding: "3rem", color: "var(--muted)" }}>
-          <LuUsers style={{ fontSize: "3rem", marginBottom: "1rem", opacity: 0.5 }} />
+        <div style={{ textAlign: "center", padding: "4rem", color: "var(--muted)" }} className="card-premium">
+          <LuUsers style={{ fontSize: "3.5rem", marginBottom: "1rem", opacity: 0.4 }} />
           <p>No se encontraron datos para generar el reporte con los filtros seleccionados.</p>
         </div>
       )}
