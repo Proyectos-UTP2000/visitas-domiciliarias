@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { LuSearch, LuSettings, LuFolder, LuChevronDown, LuChevronRight } from "react-icons/lu";
+import { LuSearch, LuSettings, LuFolder, LuChevronDown, LuChevronRight, LuArrowUp, LuArrowDown, LuArrowUpDown } from "react-icons/lu";
 import { getStoredSession } from "../../auth/auth-storage";
 import { listMunicipalidades } from "../../municipalidades/municipalidades-api";
 import type { MunicipalidadRecord } from "../../municipalidades/municipalidades-types";
@@ -58,6 +58,34 @@ export function CentrosPobladosPage() {
       [groupName]: !curr[groupName],
     }));
   }
+
+  const expandAllGroups = () => {
+    if (!groupedRecords) return;
+    const expanded: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      expanded[key] = false;
+    });
+    setCollapsedGroups(expanded);
+  };
+
+  const collapseAllGroups = () => {
+    if (!groupedRecords) return;
+    const collapsed: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      collapsed[key] = true;
+    });
+    setCollapsedGroups(collapsed);
+  };
+
+  useEffect(() => {
+    if (groupBy && groupedRecords) {
+      const initialCollapsed: Record<string, boolean> = {};
+      Object.keys(groupedRecords).forEach((key) => {
+        initialCollapsed[key] = true;
+      });
+      setCollapsedGroups(initialCollapsed);
+    }
+  }, [groupBy, groupedRecords]);
 
   const filteredRecords = useMemo(() => {
     return filterCentrosPoblados(records, query, muniFilter);
@@ -123,17 +151,27 @@ export function CentrosPobladosPage() {
   }, [sortedRecords, groupBy, munisMap]);
 
   function handleSort(key: string) {
-    let direction: "asc" | "desc" = "asc";
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
+    if (sortConfig && sortConfig.key === key) {
+      if (sortConfig.direction === "asc") {
+        setSortConfig({ key, direction: "desc" });
+      } else {
+        setSortConfig(null);
+      }
+    } else {
+      setSortConfig({ key, direction: "asc" });
     }
-    setSortConfig({ key, direction });
   }
 
-  function getSortIcon(key: string) {
-    if (!sortConfig || sortConfig.key !== key) return " ↕";
-    return sortConfig.direction === "asc" ? " ▲" : " ▼";
-  }
+  const renderSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <LuArrowUpDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", opacity: 0.4 }} />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <LuArrowUp size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    ) : (
+      <LuArrowDown size={14} style={{ marginLeft: "0.25rem", verticalAlign: "middle", color: "var(--primary)" }} />
+    );
+  };
 
   useEffect(() => {
     const session = getStoredSession();
@@ -403,61 +441,61 @@ export function CentrosPobladosPage() {
           </div>
         )}
 
-        <div className="admin-actions-row">
-          <div className="admin-search-field">
-            <LuSearch className="search-icon" size={18} />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o ubigeo..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <div className="admin-filters-grid">
+            <div className="field">
+              <span>Buscar Centro Poblado</span>
+              <div className="admin-search-field" style={{ border: "1px solid var(--border)", background: "white" }}>
+                <LuSearch className="search-icon" size={18} style={{ marginRight: "0.5rem" }} />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o ubigeo..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+            </div>
 
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginRight: "1rem" }}>
-            {user?.rol === "ADMIN_GENERAL" ? (
-              <select
-                onChange={(e) => setMuniFilter(e.target.value)}
-                style={{
-                  width: "220px",
-                  height: "38px",
-                  background: "white",
-                  color: "#333",
-                  border: "1px solid #ccc",
-                  borderRadius: "0.25rem",
-                  padding: "0 0.5rem",
-                  cursor: "pointer",
-                }}
-                value={muniFilter}
-              >
-                <option value="">Todas las Municipalidades</option>
-                {municipalidades.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombre}
-                  </option>
-                ))}
-              </select>
-            ) : null}
+            {user?.rol === "ADMIN_GENERAL" && (
+              <div className="field">
+                <span>Municipalidad</span>
+                <select
+                  className="admin-select"
+                  onChange={(e) => setMuniFilter(e.target.value)}
+                  value={muniFilter}
+                >
+                  <option value="">Todas las Municipalidades</option>
+                  {municipalidades.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>Agrupar por:</span>
+            <div className="field">
+              <span>Agrupar Centros Poblados por</span>
               <select
+                className="admin-select"
                 value={groupBy}
                 onChange={(e) => setGroupBy(e.target.value)}
-                style={{
-                  height: "38px",
-                  background: "white",
-                  color: "#333",
-                  border: "1px solid #ccc",
-                  borderRadius: "0.25rem",
-                  padding: "0 0.5rem",
-                  cursor: "pointer",
-                }}
               >
                 <option value="">Ninguno</option>
                 {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
                 <option value="tipo">Tipo de CC.PP.</option>
               </select>
+              {groupBy !== "" && (
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
+                    Expandir todos
+                  </button>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
+                    Colapsar todos
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -468,23 +506,23 @@ export function CentrosPobladosPage() {
               <tr>
                 {user?.rol === "ADMIN_GENERAL" && (
                   <th onClick={() => handleSort("municipalidad")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    Municipalidad{getSortIcon("municipalidad")}
+                    Municipalidad {renderSortIcon("municipalidad")}
                   </th>
                 )}
                 <th onClick={() => handleSort("codigo")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Código / Ubigeo{getSortIcon("codigo")}
+                  Código / Ubigeo {renderSortIcon("codigo")}
                 </th>
                 <th onClick={() => handleSort("nombre")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Nombre{getSortIcon("nombre")}
+                  Nombre {renderSortIcon("nombre")}
                 </th>
                 <th onClick={() => handleSort("tipo")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Tipo{getSortIcon("tipo")}
+                  Tipo {renderSortIcon("tipo")}
                 </th>
                 <th onClick={() => handleSort("poblacion")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Población Est.{getSortIcon("poblacion")}
+                  Población Est. {renderSortIcon("poblacion")}
                 </th>
                 <th onClick={() => handleSort("latitud")} style={{ cursor: "pointer", userSelect: "none" }}>
-                  Ubicación (Lat/Lng){getSortIcon("latitud")}
+                  Ubicación (Lat/Lng) {renderSortIcon("latitud")}
                 </th>
                 <th>Estado</th>
                 <th style={{ width: "80px", textAlign: "center" }}>Acciones</th>
