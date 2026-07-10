@@ -349,19 +349,28 @@ export function ActoresSocialesPage() {
                 <option value="tipoActor">Tipo de Actor</option>
                 <option value="establecimiento">Establecimiento</option>
               </select>
-              {groupBy !== "" && (
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
-                    Expandir todos
-                  </button>
-                  <span style={{ color: "#ccc" }}>|</span>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
-                    Colapsar todos
-                  </button>
-                </div>
-              )}
             </div>
           </div>
+        </div>
+
+        <div className="admin-table-meta">
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>{filteredActores.length} actores sociales encontrados</span>
+            {groupBy !== "" && (
+              <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.8rem", alignItems: "center" }}>
+                <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
+                  Expandir todos
+                </button>
+                <span style={{ color: "#ccc" }}>|</span>
+                <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
+                  Colapsar todos
+                </button>
+              </div>
+            )}
+          </div>
+          <span>
+            {isLoading ? "Cargando..." : `1-${filteredActores.length} de ${filteredActores.length}`}
+          </span>
         </div>
 
         <div className="admin-table-wrap">

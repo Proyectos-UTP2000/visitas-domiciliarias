@@ -82,41 +82,6 @@ export function SectoresRuralPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  function toggleGroupCollapse(groupName: string) {
-    setCollapsedGroups((curr) => ({
-      ...curr,
-      [groupName]: !curr[groupName],
-    }));
-  }
-
-  const expandAllGroups = () => {
-    if (!groupedRecords) return;
-    const expanded: Record<string, boolean> = {};
-    Object.keys(groupedRecords).forEach((key) => {
-      expanded[key] = false;
-    });
-    setCollapsedGroups(expanded);
-  };
-
-  const collapseAllGroups = () => {
-    if (!groupedRecords) return;
-    const collapsed: Record<string, boolean> = {};
-    Object.keys(groupedRecords).forEach((key) => {
-      collapsed[key] = true;
-    });
-    setCollapsedGroups(collapsed);
-  };
-
-  useEffect(() => {
-    if (groupBy && groupedRecords) {
-      const initialCollapsed: Record<string, boolean> = {};
-      Object.keys(groupedRecords).forEach((key) => {
-        initialCollapsed[key] = true;
-      });
-      setCollapsedGroups(initialCollapsed);
-    }
-  }, [groupBy, groupedRecords]);
-
   const filteredRecords = useMemo(() => {
     return filterSectores(records, query, "RURAL", muniFilter);
   }, [records, query, muniFilter]);
@@ -188,6 +153,41 @@ export function SectoresRuralPage() {
     });
     return groups;
   }, [sortedRecords, groupBy, munisMap]);
+
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((curr) => ({
+      ...curr,
+      [groupName]: !curr[groupName],
+    }));
+  }
+
+  const expandAllGroups = () => {
+    if (!groupedRecords) return;
+    const expanded: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      expanded[key] = false;
+    });
+    setCollapsedGroups(expanded);
+  };
+
+  const collapseAllGroups = () => {
+    if (!groupedRecords) return;
+    const collapsed: Record<string, boolean> = {};
+    Object.keys(groupedRecords).forEach((key) => {
+      collapsed[key] = true;
+    });
+    setCollapsedGroups(collapsed);
+  };
+
+  useEffect(() => {
+    if (groupBy && groupedRecords) {
+      const initialCollapsed: Record<string, boolean> = {};
+      Object.keys(groupedRecords).forEach((key) => {
+        initialCollapsed[key] = true;
+      });
+      setCollapsedGroups(initialCollapsed);
+    }
+  }, [groupBy, groupedRecords]);
 
   function handleSort(key: string) {
     if (sortConfig && sortConfig.key === key) {
@@ -545,23 +545,25 @@ export function SectoresRuralPage() {
                 {user?.rol === "ADMIN_GENERAL" && <option value="municipalidad">Municipalidad</option>}
                 <option value="centroPoblado">Centro Poblado</option>
               </select>
-              {groupBy !== "" && (
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem", fontSize: "0.8rem" }}>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
-                    Expandir todos
-                  </button>
-                  <span style={{ color: "#ccc" }}>|</span>
-                  <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
-                    Colapsar todos
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
         <div className="admin-table-meta">
-          <span>{filteredRecords.length} sectores rurales encontrados</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>{filteredRecords.length} sectores rurales encontrados</span>
+            {groupBy !== "" && (
+              <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.8rem", alignItems: "center" }}>
+                <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={expandAllGroups}>
+                  Expandir todos
+                </button>
+                <span style={{ color: "#ccc" }}>|</span>
+                <button type="button" className="admin-button is-ghost" style={{ padding: 0, height: "auto", fontSize: "0.8rem", color: "var(--primary)" }} onClick={collapseAllGroups}>
+                  Colapsar todos
+                </button>
+              </div>
+            )}
+          </div>
           <span>
             {isLoading ? "Cargando..." : `1-${filteredRecords.length} de ${filteredRecords.length}`}
           </span>

@@ -717,38 +717,40 @@ export default function NinosPage() {
           </div>
         </div>
 
-        {groupBy !== "NONE" && (
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              className="admin-button is-ghost"
-              onClick={() => {
-                const expanded: Record<string, boolean> = {};
-                groupedRecords?.forEach((g) => {
-                  expanded[g.groupKey] = true;
-                });
-                setExpandedGroups(expanded);
-              }}
-              style={{ padding: "0.25rem 0.75rem", fontSize: "0.85rem", height: "auto" }}
-            >
-              Expandir todo
-            </button>
-            <button
-              type="button"
-              className="admin-button is-ghost"
-              onClick={() => setExpandedGroups({})}
-              style={{ padding: "0.25rem 0.75rem", fontSize: "0.85rem", height: "auto" }}
-            >
-              Colapsar todo
-            </button>
-          </div>
-        )}
-
         {message && <p className="alert alert-success" style={{ marginTop: "1rem" }}>{message}</p>}
         {error && <p className="alert alert-error" style={{ marginTop: "1rem" }}>{error}</p>}
 
         <div className="admin-table-meta" style={{ marginTop: "1rem" }}>
-          <span>{filtered.length} Niños encontrados</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span>{filtered.length} Niños encontrados</span>
+            {groupBy !== "NONE" && (
+              <div style={{ display: "flex", gap: "0.5rem", fontSize: "0.85rem", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="admin-button is-ghost"
+                  onClick={() => {
+                    const expanded: Record<string, boolean> = {};
+                    groupedRecords?.forEach((g) => {
+                      expanded[g.groupKey] = true;
+                    });
+                    setExpandedGroups(expanded);
+                  }}
+                  style={{ padding: 0, height: "auto", fontSize: "0.85rem", color: "var(--primary)" }}
+                >
+                  Expandir todo
+                </button>
+                <span style={{ color: "#ccc" }}>|</span>
+                <button
+                  type="button"
+                  className="admin-button is-ghost"
+                  onClick={() => setExpandedGroups({})}
+                  style={{ padding: 0, height: "auto", fontSize: "0.85rem", color: "var(--primary)" }}
+                >
+                  Colapsar todo
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="admin-table-wrap">
