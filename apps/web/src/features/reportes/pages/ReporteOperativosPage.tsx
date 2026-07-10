@@ -22,40 +22,32 @@ import type { SectorRecord } from "../../sectores/sectores-types";
 import type { ReporteOperativoData } from "../reportes-types";
 import "../reportes.css";
 
-// Donut Chart SVG premium hecho en casa
-function DonutChart({ value, total, color, label, subtitle }: { value: number; total: number; color: string; label: string; subtitle?: string }) {
+// Mini Donut Chart SVG premium integrado directamente en la tarjeta de Cobertura
+function MiniDonutChart({ value, total }: { value: number; total: number }) {
   const percentage = total > 0 ? (value / total) * 100 : 0;
-  const radius = 38;
+  const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="donut-chart-container">
-      <div className="donut-svg-wrap">
-        <svg viewBox="0 0 100 100" className="donut-svg">
-          <circle cx="50" cy="50" r={radius} fill="transparent" stroke="var(--border)" strokeWidth="7" />
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="transparent"
-            stroke={color}
-            strokeWidth="7"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            className="donut-progress-circle"
-            style={{ stroke: color }}
-          />
-        </svg>
-        <div className="donut-text-overlay">
-          <span className="donut-percentage">{Math.round(percentage)}%</span>
-          {subtitle && <span className="donut-subtitle">{subtitle}</span>}
-        </div>
-      </div>
-      <div className="donut-info">
-        <span className="donut-label">{label}</span>
-        <span className="donut-value">{value} de {total}</span>
+    <div className="mini-donut-svg-wrap">
+      <svg viewBox="0 0 60 60" className="mini-donut-svg">
+        <circle cx="30" cy="30" r={radius} fill="transparent" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="5.5" />
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="transparent"
+          stroke="#ffffff"
+          strokeWidth="5.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="mini-donut-progress-circle"
+        />
+      </svg>
+      <div className="mini-donut-text-overlay">
+        {Math.round(percentage)}%
       </div>
     </div>
   );
@@ -253,7 +245,7 @@ export function ReporteOperativosPage() {
   }
 
   return (
-    <>
+    <div className="admin-page-container">
       <section className="admin-page-heading animate-fade-in">
         <div>
           <h1>Reporte Operativo</h1>
@@ -318,12 +310,12 @@ export function ReporteOperativosPage() {
               </select>
             </div>
 
-            <div className="form-group filter-actions-container" style={{ display: "flex", alignItems: "flex-end" }}>
+            <div className="form-group filter-actions-container">
               <button 
                 type="button" 
                 onClick={handleResetFilters} 
                 className="admin-button is-secondary" 
-                style={{ width: "100%", fontWeight: "600" }}
+                style={{ width: "100%" }}
               >
                 Limpiar Filtros
               </button>
@@ -348,64 +340,71 @@ export function ReporteOperativosPage() {
         <p className="alert alert-error">{error}</p>
       ) : reportData ? (
         <>
-          {/* KPI CARDS & DONUT DIAGRAMS */}
-          <div className="kpi-and-charts-layout">
-            <div className="reports-kpi-grid" style={{ flex: 3 }}>
-              <div className="kpi-card-custom indigo border-gradient">
-                <div className="kpi-card-header">
-                  <span>Padrón de Niños</span>
-                  <LuSmile className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.totalNinos}</div>
-                <div className="kpi-card-desc">Total niños menores de 1 año</div>
+          {/* KPI CARDS UNIFICADOS EN 5 COLUMNAS */}
+          <div className="reports-kpi-grid">
+            <div className="kpi-card-custom indigo">
+              <div className="kpi-card-header">
+                <span>Padrón de Niños</span>
+                <LuSmile className="kpi-icon" />
               </div>
+              <div className="kpi-card-value">{reportData.summary.totalNinos}</div>
+              <div className="kpi-card-desc">Total niños menores de 1 año</div>
+            </div>
 
-              <div className="kpi-card-custom purple border-gradient">
-                <div className="kpi-card-header">
-                  <span>Periodo 0-5 meses</span>
-                  <LuFileText className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.ninos0a5}</div>
-                <div className="kpi-card-desc">
-                  {reportData.summary.totalNinos > 0 
-                    ? `${((reportData.summary.ninos0a5 / reportData.summary.totalNinos) * 100).toFixed(1)}%` 
-                    : "0%"}{" "}
-                  del total de niños
-                </div>
+            <div className="kpi-card-custom purple">
+              <div className="kpi-card-header">
+                <span>Periodo 0-5 meses</span>
+                <LuFileText className="kpi-icon" />
               </div>
-
-              <div className="kpi-card-custom blue border-gradient">
-                <div className="kpi-card-header">
-                  <span>Periodo 6-12 meses</span>
-                  <LuCompass className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.ninos6a12}</div>
-                <div className="kpi-card-desc">
-                  {reportData.summary.totalNinos > 0 
-                    ? `${((reportData.summary.ninos6a12 / reportData.summary.totalNinos) * 100).toFixed(1)}%` 
-                    : "0%"}{" "}
-                  del total de niños
-                </div>
-              </div>
-
-              <div className="kpi-card-custom orange border-gradient">
-                <div className="kpi-card-header">
-                  <span>Responsables</span>
-                  <LuPhone className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.totalResponsables}</div>
-                <div className="kpi-card-desc">Madres o tutores únicos</div>
+              <div className="kpi-card-value">{reportData.summary.ninos0a5}</div>
+              <div className="kpi-card-desc">
+                {reportData.summary.totalNinos > 0 
+                  ? `${((reportData.summary.ninos0a5 / reportData.summary.totalNinos) * 100).toFixed(1)}%` 
+                  : "0%"}{" "}
+                del total de niños
               </div>
             </div>
 
-            <div className="chart-card-premium" style={{ flex: 1.2 }}>
-              <DonutChart 
-                value={reportData.summary.totalConsejeria} 
-                total={reportData.summary.totalVisitasEjecutadas} 
-                color="var(--primary)" 
-                label="Cobertura de Consejería"
-                subtitle="brindada"
-              />
+            <div className="kpi-card-custom blue">
+              <div className="kpi-card-header">
+                <span>Periodo 6-12 meses</span>
+                <LuCompass className="kpi-icon" />
+              </div>
+              <div className="kpi-card-value">{reportData.summary.ninos6a12}</div>
+              <div className="kpi-card-desc">
+                {reportData.summary.totalNinos > 0 
+                  ? `${((reportData.summary.ninos6a12 / reportData.summary.totalNinos) * 100).toFixed(1)}%` 
+                  : "0%"}{" "}
+                del total de niños
+              </div>
+            </div>
+
+            <div className="kpi-card-custom orange">
+              <div className="kpi-card-header">
+                <span>Responsables</span>
+                <LuPhone className="kpi-icon" />
+              </div>
+              <div className="kpi-card-value">{reportData.summary.totalResponsables}</div>
+              <div className="kpi-card-desc">Madres o tutores únicos</div>
+            </div>
+
+            <div className="kpi-card-custom primary-gradient text-white">
+              <div className="kpi-card-header">
+                <span className="text-white-muted">Cobertura Consejería</span>
+                <LuShieldAlert className="kpi-icon text-white" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginTop: "0.25rem" }}>
+                <div className="kpi-card-value text-white" style={{ margin: 0 }}>
+                  {reportData.summary.porcentajeConsejeria}%
+                </div>
+                <MiniDonutChart 
+                  value={reportData.summary.totalConsejeria} 
+                  total={reportData.summary.totalVisitasEjecutadas} 
+                />
+              </div>
+              <div className="kpi-card-desc text-white-muted">
+                {reportData.summary.totalConsejeria} de {reportData.summary.totalVisitasEjecutadas} visitas
+              </div>
             </div>
           </div>
 
@@ -429,7 +428,7 @@ export function ReporteOperativosPage() {
 
           {activeTab === "resumen" ? (
             /* DESEMPEÑO POR SECTOR */
-            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+            <section className="admin-content-card card-premium animate-fade-in">
               <div className="admin-card-toolbar">
                 <div>
                   <h2>Desglose Operativo por Sector</h2>
@@ -511,7 +510,7 @@ export function ReporteOperativosPage() {
             </section>
           ) : (
             /* PADRÓN NOMINAL DETALLADO CON BUSCADOR Y PAGINACIÓN */
-            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+            <section className="admin-content-card card-premium animate-fade-in">
               <div className="admin-card-toolbar" style={{ flexWrap: "wrap", gap: "1rem" }}>
                 <div style={{ flex: 1, minWidth: "250px" }}>
                   <h2>Detalle del Padrón Nominal</h2>
@@ -650,6 +649,6 @@ export function ReporteOperativosPage() {
           <p>No se encontraron datos para generar el reporte con los filtros seleccionados.</p>
         </div>
       )}
-    </>
+    </div>
   );
 }

@@ -25,40 +25,32 @@ import type { SectorRecord } from "../../sectores/sectores-types";
 import type { ReporteActividadData } from "../reportes-types";
 import "../reportes.css";
 
-// Donut Chart SVG premium hecho en casa
-function DonutChart({ value, total, color, label, subtitle }: { value: number; total: number; color: string; label: string; subtitle?: string }) {
+// Mini Donut Chart SVG premium integrado directamente en la tarjeta de Cobertura
+function MiniDonutChart({ value, total }: { value: number; total: number }) {
   const percentage = total > 0 ? (value / total) * 100 : 0;
-  const radius = 38;
+  const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="donut-chart-container">
-      <div className="donut-svg-wrap">
-        <svg viewBox="0 0 100 100" className="donut-svg">
-          <circle cx="50" cy="50" r={radius} fill="transparent" stroke="var(--border)" strokeWidth="7" />
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="transparent"
-            stroke={color}
-            strokeWidth="7"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            className="donut-progress-circle"
-            style={{ stroke: color }}
-          />
-        </svg>
-        <div className="donut-text-overlay">
-          <span className="donut-percentage">{Math.round(percentage)}%</span>
-          {subtitle && <span className="donut-subtitle">{subtitle}</span>}
-        </div>
-      </div>
-      <div className="donut-info">
-        <span className="donut-label">{label}</span>
-        <span className="donut-value">{value} de {total}</span>
+    <div className="mini-donut-svg-wrap">
+      <svg viewBox="0 0 60 60" className="mini-donut-svg">
+        <circle cx="30" cy="30" r={radius} fill="transparent" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="5.5" />
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="transparent"
+          stroke="#ffffff"
+          strokeWidth="5.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="mini-donut-progress-circle"
+        />
+      </svg>
+      <div className="mini-donut-text-overlay">
+        {Math.round(percentage)}%
       </div>
     </div>
   );
@@ -273,7 +265,7 @@ export function ReporteActividadPage() {
   }
 
   return (
-    <>
+    <div className="admin-page-container">
       <section className="admin-page-heading animate-fade-in">
         <div>
           <h1>Reporte de Actividad</h1>
@@ -378,12 +370,12 @@ export function ReporteActividadPage() {
               />
             </div>
 
-            <div className="form-group filter-actions-container" style={{ display: "flex", alignItems: "flex-end" }}>
+            <div className="form-group filter-actions-container">
               <button 
                 type="button" 
                 onClick={handleResetFilters} 
                 className="admin-button is-secondary" 
-                style={{ width: "100%", fontWeight: "600" }}
+                style={{ width: "100%" }}
               >
                 Limpiar Filtros
               </button>
@@ -408,56 +400,61 @@ export function ReporteActividadPage() {
         <p className="alert alert-error">{error}</p>
       ) : reportData ? (
         <>
-          {/* KPI CARDS & DONUT DIAGRAMS */}
-          <div className="kpi-and-charts-layout">
-            <div className="reports-kpi-grid" style={{ flex: 3 }}>
-              <div className="kpi-card-custom purple border-gradient">
-                <div className="kpi-card-header">
-                  <span>Total Visitas</span>
-                  <LuCalendar className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.total}</div>
-                <div className="kpi-card-desc">Visitas programadas en el periodo</div>
+          {/* KPI CARDS UNIFICADOS EN 5 COLUMNAS */}
+          <div className="reports-kpi-grid">
+            <div className="kpi-card-custom purple">
+              <div className="kpi-card-header">
+                <span>Total Visitas</span>
+                <LuCalendar className="kpi-icon" />
               </div>
-
-              <div className="kpi-card-custom green border-gradient">
-                <div className="kpi-card-header">
-                  <span>Ejecutadas</span>
-                  <LuCircleCheck className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.ejecutadas}</div>
-                <div className="kpi-card-desc">Visitas completadas exitosamente</div>
-              </div>
-
-              <div className="kpi-card-custom blue border-gradient">
-                <div className="kpi-card-header">
-                  <span>Pendientes</span>
-                  <LuClock className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">{reportData.summary.programadas}</div>
-                <div className="kpi-card-desc">Visitas agendadas por realizar</div>
-              </div>
-
-              <div className="kpi-card-custom orange border-gradient">
-                <div className="kpi-card-header">
-                  <span>Inconclusas / Reprog.</span>
-                  <LuTriangleAlert className="kpi-icon" />
-                </div>
-                <div className="kpi-card-value">
-                  {reportData.summary.inconclusas} / {reportData.summary.reprogramadas}
-                </div>
-                <div className="kpi-card-desc">Visitas con problemas de ejecución</div>
-              </div>
+              <div className="kpi-card-value">{reportData.summary.total}</div>
+              <div className="kpi-card-desc">Visitas programadas en el periodo</div>
             </div>
 
-            <div className="chart-card-premium" style={{ flex: 1.2 }}>
-              <DonutChart 
-                value={reportData.summary.ejecutadas} 
-                total={reportData.summary.total} 
-                color="var(--primary)" 
-                label="Cobertura General de Visitas"
-                subtitle="ejecución"
-              />
+            <div className="kpi-card-custom green">
+              <div className="kpi-card-header">
+                <span>Ejecutadas</span>
+                <LuCircleCheck className="kpi-icon" />
+              </div>
+              <div className="kpi-card-value">{reportData.summary.ejecutadas}</div>
+              <div className="kpi-card-desc">Visitas completadas exitosamente</div>
+            </div>
+
+            <div className="kpi-card-custom blue">
+              <div className="kpi-card-header">
+                <span>Pendientes</span>
+                <LuClock className="kpi-icon" />
+              </div>
+              <div className="kpi-card-value">{reportData.summary.programadas}</div>
+              <div className="kpi-card-desc">Visitas agendadas por realizar</div>
+            </div>
+
+            <div className="kpi-card-custom orange">
+              <div className="kpi-card-header">
+                <span>Inconclusas / Reprog.</span>
+                <LuTriangleAlert className="kpi-icon" />
+              </div>
+              <div className="kpi-card-value">
+                {reportData.summary.inconclusas} / {reportData.summary.reprogramadas}
+              </div>
+              <div className="kpi-card-desc">Visitas con problemas de ejecución</div>
+            </div>
+
+            <div className="kpi-card-custom primary-gradient text-white">
+              <div className="kpi-card-header">
+                <span className="text-white-muted">Cobertura de Visitas</span>
+                <LuRefreshCw className="kpi-icon text-white" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginTop: "0.25rem" }}>
+                <div className="kpi-card-value text-white" style={{ margin: 0 }}>
+                  {reportData.summary.porcentajeEjecucion}%
+                </div>
+                <MiniDonutChart 
+                  value={reportData.summary.ejecutadas} 
+                  total={reportData.summary.total} 
+                />
+              </div>
+              <div className="kpi-card-desc text-white-muted">Tasa de cumplimiento general</div>
             </div>
           </div>
 
@@ -481,7 +478,7 @@ export function ReporteActividadPage() {
 
           {activeTab === "resumen" ? (
             /* DESEMPEÑO ACTORES SOCIALES */
-            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+            <section className="admin-content-card card-premium animate-fade-in">
               <div className="admin-card-toolbar">
                 <div>
                   <h2>Desempeño de Actores Sociales</h2>
@@ -565,7 +562,7 @@ export function ReporteActividadPage() {
             </section>
           ) : (
             /* DETALLE DE TODAS LAS VISITAS CON BUSCADOR Y PAGINACIÓN */
-            <section className="admin-content-card card-premium animate-fade-in" style={{ marginTop: "1rem" }}>
+            <section className="admin-content-card card-premium animate-fade-in">
               <div className="admin-card-toolbar" style={{ flexWrap: "wrap", gap: "1rem" }}>
                 <div style={{ flex: 1, minWidth: "250px" }}>
                   <h2>Listado Detallado de Visitas</h2>
@@ -699,6 +696,6 @@ export function ReporteActividadPage() {
           <p>No se encontraron datos para generar el reporte con los filtros seleccionados.</p>
         </div>
       )}
-    </>
+    </div>
   );
 }
