@@ -11,6 +11,9 @@ import { createDefaultTiposActorSocialRouter } from "./modules/tipos-actor-socia
 import { createDefaultActoresSocialesRouter } from "./modules/actores-sociales/actores-sociales.module.js";
 import { createDefaultDniRouter } from "./modules/dni/dni.module.js";
 import { createDefaultCentrosPobladosRouter } from "./modules/centros-poblados/centros-poblados.module.js";
+import { createDefaultResponsablesRouter } from "./modules/responsables/responsables.module.js";
+import { createDefaultNinosRouter } from "./modules/ninos/ninos.module.js";
+import { createDefaultVisitasRouter } from "./modules/visitas/visitas.module.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { errorHandler } from "./shared/error-handler.js";
 
@@ -35,6 +38,9 @@ export function createApp() {
   app.use("/api/v1/actores-sociales", createDefaultActoresSocialesRouter());
   app.use("/api/v1/centros-poblados", createDefaultCentrosPobladosRouter());
   app.use("/api/v1/dni", createDefaultDniRouter());
+  app.use("/api/v1/responsables", createDefaultResponsablesRouter());
+  app.use("/api/v1/ninos", createDefaultNinosRouter());
+  app.use("/api/v1/visitas", createDefaultVisitasRouter());
 
   app.use(errorHandler);
 
